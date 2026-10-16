@@ -2174,9 +2174,13 @@ CP.preload(P).then(function () { drawStage(); drawSitePreview(); renderParts(); 
 
 // 사이트에서 열었을 때: 사이트에 올라간 캐릭터 파일 불러오기
 var ON_SITE = !window.claude && /^https?:$/.test(location.protocol);
+// Claude 안에서 여는 에디터는 외부 사이트를 읽을 수 없어서, 게시할 때의 사이트 캐릭터를 함께 넣어 둠
+var EMBED = /*@@SITE_JSON@@*/null;
 function loadSiteVersion(auto) {
-  return fetch('charo-pet.json', { cache: 'no-cache' })
-    .then(function (r) { return r.ok ? r.json() : null; })
+  var src = ON_SITE
+    ? fetch('charo-pet.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
+    : Promise.resolve(EMBED ? JSON.parse(JSON.stringify(EMBED)) : null);
+  return src
     .then(function (p) {
       if (!p) { if (!auto) toast('사이트 파일을 찾지 못했어요'); return; }
       if (auto && undoStack.length) return;
@@ -2188,7 +2192,7 @@ function loadSiteVersion(auto) {
     })
     .catch(function () { if (!auto) toast('사이트 파일을 불러오지 못했어요'); });
 }
-if (ON_SITE) {
+if (ON_SITE || EMBED) {
   $('bSiteLoad').hidden = false;
   $('bSiteLoad').addEventListener('click', function () { loadSiteVersion(false); });
   if (!SAVED) loadSiteVersion(true);
