@@ -50,6 +50,13 @@ textarea:focus-visible, a:focus-visible, button:focus-visible { outline: 2px sol
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 12px; font-weight: 500; text-decoration: none; border: 1px solid var(--line); color: var(--ink); background: var(--card); cursor: pointer; font-size: 15px; }
 .btn.main { background: var(--yellow); border-color: var(--yellow); color: #1D2752; }
 .code { font: 12.5px/1.6 var(--f-num); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; overflow-x: auto; white-space: pre; }
+.pv { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv button { font: inherit; font-size: 14px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.pv button:hover { border-color: var(--yellow); }
+.pv button.extra { color: var(--muted); }
+.pv button[aria-pressed="true"] { background: var(--yellow); border-color: var(--yellow); color: #1D2752; }
+.check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); cursor: pointer; }
+.check input { accent-color: var(--yellow); width: 16px; height: 16px; }
 footer { color: var(--muted); font-size: 13px; text-align: center; }
 footer code { font-family: var(--f-num); }
 </style>
@@ -63,6 +70,13 @@ footer code { font-family: var(--f-num); }
     <div class="lane" aria-hidden="true"></div>
   </header>
 
+  <section aria-labelledby="h-preview">
+    <h2 id="h-preview">모션 미리보기</h2>
+    <p class="hint">버튼을 누르면 오른쪽 아래 차로차로가 그 모션을 바로 재생해요.</p>
+    <div class="pv" id="pv"><span class="hint">캐릭터를 불러오는 중…</span></div>
+    <label class="check"><input type="checkbox" id="pvAuto"> 자동 반응 끄기 (버튼으로만 재생)</label>
+  </section>
+
   <section aria-labelledby="h-react">
     <h2 id="h-react">지금 설정된 반응</h2>
     <ul class="reacts" id="reacts">
@@ -70,7 +84,7 @@ footer code { font-family: var(--f-num); }
       <li><span class="when">키보드를 치면</span><span class="what">신남</span></li>
       <li><span class="when">30초 동안 가만히 있으면</span><span class="what">졸기</span></li>
     </ul>
-    <p class="hint">반응은 모션 에디터에서 바꿀 수 있어요. 오른쪽 아래 캐릭터 위의 × 버튼으로 잠시 숨길 수도 있어요.</p>
+    <p class="hint">반응은 모션 에디터에서 바꿀 수 있어요. 이 페이지에서는 휴대폰에서도 캐릭터가 보이고, 탭하면 클릭 반응을 해요. 오른쪽 아래 캐릭터 위의 × 버튼으로 잠시 숨길 수도 있어요.</p>
   </section>
 
   <section aria-labelledby="h-type">
@@ -103,13 +117,13 @@ footer code { font-family: var(--f-num); }
   var EV = {
     click: function () { return '캐릭터를 클릭하면'; },
     hover: function () { return '캐릭터에 마우스를 올리면'; },
-    type: function () { return '키보드를 치면'; },
+    type: function () { return '키보드를 치는 동안'; },
     random: function (r) { return '가끔 혼자 (' + (r.min || 3) + '~' + (r.max || 6) + '초마다)'; },
-    near: function () { return '마우스가 가까이 오면'; },
+    near: function (r) { return '마우스가 가까이 ' + (r.dwell || 0) + '초 머물면'; },
     flick: function () { return '마우스를 휙 움직이면'; },
     spam: function (r) { return (r.window || 1.6) + '초 안에 ' + (r.count || 4) + '번 클릭하면'; },
     idle: function (r) { return (r.sec || 30) + '초 동안 가만히 있으면'; },
-    time: function (r) { return (r.from != null ? r.from : 23) + '시부터 ' + (r.to != null ? r.to : 6) + '시까지'; }
+    time: function (r) { return (r.from != null ? r.from : 23) + '시~' + (r.to != null ? r.to : 6) + '시에 ' + (r.sec != null ? r.sec : 8) + '초 가만히 있으면'; }
   };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   fetch('charo-pet.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (p) {
@@ -136,6 +150,25 @@ footer code { font-family: var(--f-num); }
   });
 })();
 </script>
-<script src="charo-pet.js" data-src="charo-pet.json" defer></script>
+<script>
+(function () {
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function setup(site) {
+    var list = (site.data.preview || []).filter(function (x) { return site.clips().some(function (c) { return c.id === x.clip; }); });
+    var box = document.getElementById('pv');
+    box.innerHTML = list.map(function (x) {
+      return '<button type="button" data-clip="' + esc(x.clip) + '"' + (x.extra ? ' class="extra"' : '') + '>' + esc(x.label) + '</button>';
+    }).join('');
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-clip]'); if (!b) return;
+      site.play(b.getAttribute('data-clip'));
+    });
+    document.getElementById('pvAuto').addEventListener('change', function (e) { site.setAuto(!e.target.checked); });
+  }
+  if (window.CharoPet && window.CharoPet.site) setup(window.CharoPet.site);
+  else document.addEventListener('charopet:ready', function (e) { setup(e.detail); }, { once: true });
+})();
+</script>
+<script src="charo-pet.js" data-src="charo-pet.json" data-mobile="show" defer></script>
 </body>
 </html>

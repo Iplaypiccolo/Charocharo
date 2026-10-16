@@ -189,6 +189,7 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
 .tl-bar select, .tl-bar input[type=text], .tl-bar input[type=number] { border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; background: var(--panel-2); }
 .tl-bar #clipName { width: 130px; }
 .tl-bar #clipDur { width: 72px; font-family: var(--f-num); }
+.tl-bar #clipCool, .tl-bar #clipWeight { font-family: var(--f-num); }
 .tl-time { font-family: var(--f-num); font-size: 12.5px; color: var(--muted); min-width: 108px; }
 .sep { width: 1px; height: 22px; background: var(--line); }
 .tl-scroll { flex: 1; overflow: auto; position: relative; }
@@ -288,11 +289,12 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       <div class="row">
         <button class="btn sm" id="tType">타자 신호</button>
         <button class="btn sm" id="tFlick">휙 신호</button>
-        <button class="btn sm" id="tAct">혼자 하는 표현 차례로 보기</button>
         <button class="btn sm" id="tIdle">가만히 있는 상태로 건너뛰기</button>
         <label for="tHour">시각 <select id="tHour"></select></label>
       </div>
-      <p class="hint">캐릭터를 클릭하거나, 마우스를 움직이거나, 키보드를 눌러보세요. 사이트에서도 똑같이 반응해요.</p>
+      <div class="row" id="pvRow" aria-label="모션 미리보기"></div>
+      <div class="row"><label class="check"><input type="checkbox" id="tAuto"> 자동 반응 끄기 (미리보기 버튼으로만 검토)</label></div>
+      <p class="hint">캐릭터를 클릭하거나, 마우스를 움직이거나, 키보드를 눌러보세요. 사이트에서도 똑같이 반응해요. 위 버튼을 누르면 기다리지 않고 바로 재생돼요.</p>
     </div>
   </main>
 
@@ -316,7 +318,9 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       <input type="number" id="clipDur" min="0.1" max="30" step="0.05" aria-label="동작 길이(초)"><span class="hint">초</span>
       <label class="check"><input type="checkbox" id="clipLoop"> 반복</label>
       <label class="hint" for="clipFollow">눈</label>
-      <select id="clipFollow" title="이 동작 중 눈이 마우스를 따라볼지"><option value="on">마우스 따라봄</option><option value="hold">그 자리에 멈춤</option><option value="center">정면 보기</option></select>
+      <select id="clipFollow" title="이 동작 중 눈이 마우스를 따라볼지"><option value="on">마우스 따라봄</option><option value="hold">그 자리에 멈춤</option><option value="center">정면 보기</option><option value="mixed" disabled>시간별 설정</option></select>
+      <label class="hint" for="clipCool" title="가끔 혼자 나올 때, 한 번 나온 뒤 다시 나오기까지">쉬는 시간</label><input type="number" id="clipCool" min="0" step="1" style="width:56px" aria-label="쉬는 시간(초)">
+      <label class="hint" for="clipWeight" title="가끔 혼자 나올 때 뽑힐 비율 (1이 보통)">빈도</label><input type="number" id="clipWeight" min="0" step="0.1" style="width:56px" aria-label="빈도">
       <span class="sep" aria-hidden="true"></span>
       <button class="btn sm" id="bPlay">재생</button>
       <button class="btn sm ghost" id="bRewind">처음으로</button>
@@ -347,6 +351,8 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
  * 에디터에서 저장한 charo-pet.json 을 읽어 화면 하단에 캐릭터를 띄웁니다.
  * 사용법: index.html의 body 끝에 아래처럼 script 태그 한 줄을 넣습니다.
  *   script src="charo-pet.js" data-src="charo-pet.json" defer
+ *   좁은 화면에서도 보이게 하려면 data-mobile="show" 를 함께 넣습니다.
+ * 미리보기: CharoPet.site.play('c01'), CharoPet.site.setAuto(false)
  * 키보드 반응은 "키가 눌렸다"는 신호만 쓰며, 입력한 글자는 읽지 않습니다.
  */
 (function (global) {
@@ -537,7 +543,7 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     var im = imgFor(p, v.asset);
     if (!im) return;
     ctx.globalAlpha = Math.min(1, alpha);
-    ctx.drawImage(im, 0, 0, v.w || im.naturalWidth, v.h || im.naturalHeight);
+    ctx.drawImage(im, v.x || 0, v.y || 0, v.w || im.naturalWidth, v.h || im.naturalHeight);
   }
 
   function render(ctx, p, fp, W, view) {
@@ -563,22 +569,26 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     return a < b ? (h >= a && h < b) : (h >= a || h < b);
   }
 
-  // 반응 규칙 엔진
-  // 규칙 종류
-  //  한 번 재생: click, hover, type, near(가까이), flick(휙), spam(연속 클릭)
-  //  가끔 혼자: random (clips 묶음에서 하나씩, 평소 동작 중일 때만)
-  //  상태: idle(가만히), time(시간대) — 조건이 맞는 동안 반복, enter/exit 동작 선택
+  // ---------- 반응 규칙 엔진 ----------
+  // 한 번 재생: click, spam(연타), hover, near(가까이·머무름), flick(휙), type(타자, 이어치기)
+  // 가끔 혼자: random (묶음에서 하나, 평소 동작 중일 때만)
+  // 상태: idle(가만히), time(시간대 + 잠깐 가만히) — 조건이 맞는 동안 반복, 시작/끝 동작
   function now() { return (global.performance && performance.now()) || Date.now(); }
-  function Engine(p, opt) { this.p = p; this.opt = opt || {}; this.reset(); }
+  function Engine(p, opt) { this.p = p; this.opt = opt || {}; this.auto = true; this.reset(); }
   Engine.prototype.reset = function () {
     var n = now();
     this.t = n; this.lastInput = n; this.one = null; this.layer = undefined; this.stateId = undefined;
-    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.lastPick = {}; this.hour = null;
-    this.follow = { x: 0, y: 0 }; this.followT = { x: 0, y: 0 }; this.side = 'right';
-    this.clicks = []; this.ptr = null; this.nearArmed = true; this.cool = {};
+    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.lastPick = {}; this.played = {};
+    this.hour = null; this.follow = { x: 0, y: 0 }; this.followT = { x: 0, y: 0 }; this.side = 'right';
+    this.clicks = []; this.ptr = null; this.nearArmed = true; this.nearSince = null; this.cool = {}; this.typeUntil = 0;
   };
-  Engine.prototype.input = function () { this.lastInput = Math.max(this.t, this.lastInput); };
+  Engine.prototype.input = function () { this.lastInput = Math.max(this.t, now()); };
   Engine.prototype.skipIdle = function (sec) { this.lastInput -= sec * 1000; };
+  Engine.prototype.setAuto = function (on) {
+    this.auto = !!on;
+    if (!on) { this.one = null; this.stateId = null; this._snap(); }
+    this.input();
+  };
   Engine.prototype._snap = function () {
     if (!this.last) return;
     var c = {};
@@ -590,9 +600,19 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     }
     this.blend = { start: this.t, from: c };
   };
-  Engine.prototype._start = function (id, weak, locked) {
+  Engine.prototype._start = function (id, o) {
+    o = o || {};
     this._snap();
-    this.one = { id: id, start: this.t, weak: !!weak, locked: !!locked };
+    this.one = { id: id, start: this.t, weak: !!o.weak, locked: !!o.locked, sustain: !!o.sustain,
+      loopFrom: +o.loopFrom || 0, endId: o.endId || null, manual: !!o.manual };
+    this.played[id] = this.t;
+  };
+  // 미리보기용 수동 재생: 무엇이든 끊고 바로 재생
+  Engine.prototype.play = function (id) {
+    if (!findClip(this.p, id)) return false;
+    this.input(); this.t = now();
+    this._start(id, { locked: true, manual: true, endId: findClip(this.p, id).previewNext });
+    return true;
   };
   Engine.prototype.rule = function (ev) {
     var rules = this.p.rules || [];
@@ -602,33 +622,44 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     }
     return null;
   };
+  Engine.prototype.sleeping = function () {
+    if (this.stateId == null) return false;
+    var rules = this.p.rules || [];
+    for (var i = 0; i < rules.length; i++) if (rules[i].id === this.stateId) return true;
+    return false;
+  };
   Engine.prototype.trigger = function (ev) {
+    var wasSleeping = this.sleeping();
     this.input();
+    if (!this.auto || wasSleeping) return false;   // 졸 때의 입력은 깨우기만
     var r = this.rule(ev);
     if (!r) return false;
-    if (r.cooldown && this.cool[r.id] != null && this.t - this.cool[r.id] < r.cooldown * 1000) return false;
+    var t = now();
+    if (r.cooldown && this.cool[r.id] != null && t - this.cool[r.id] < r.cooldown * 1000) return false;
     var weak = ev === 'hover' || ev === 'near';
+    var id = (this.side === 'left' && findClip(this.p, r.clipLeft)) ? r.clipLeft : r.clip;
+    if (!findClip(this.p, id)) id = r.clipLeft;
     if (this.one) {
       if (this.one.locked) return false;
+      if (this.one.id === id && !r.restart) return false;
       if (!this.one.weak && !r.interrupt) return false;
       if (this.one.weak && weak) return false;
     }
-    var id = (this.side === 'left' && findClip(this.p, r.clipLeft)) ? r.clipLeft : r.clip;
-    if (!findClip(this.p, id)) id = r.clipLeft;
-    this.cool[r.id] = this.t;
-    this._start(id, weak, false);
+    this.cool[r.id] = t; this.t = t;
+    this._start(id, { weak: weak, locked: !!r.lock, sustain: ev === 'type' && !!r.sustain, loopFrom: r.loopFrom, endId: r.end });
     return true;
   };
   // 마우스 위치: 캐릭터 중심 기준 화면 px, unit = 무대 1칸이 화면에서 몇 px인지
   Engine.prototype.pointer = function (dx, dy, unit) {
     var t = now(), prev = this.ptr;
-    this.ptr = { x: dx, y: dy, t: t };
-    this.input();
-    this.side = dx < 0 ? 'left' : 'right';
-    var len = Math.sqrt(dx * dx + dy * dy), su = len / (unit || 1);
+    this.ptr = { x: dx, y: dy, t: t, su: Math.sqrt(dx * dx + dy * dy) / (unit || 1) };
+    var len = Math.sqrt(dx * dx + dy * dy), su = this.ptr.su;
     var k = Math.min(1, su / (this.opt.followRange || 600));
     if (len < 1) { this.followT.x = 0; this.followT.y = 0; }
     else { this.followT.x = dx / len * k; this.followT.y = dy / len * k; }
+    if (this.sleeping()) { this.input(); return; }
+    this.input();
+    if (!(this.one && this.one.locked)) this.side = dx < 0 ? 'left' : 'right';
     var fr = this.rule('flick');
     if (fr && prev) {
       var dt = (t - prev.t) / 1000;
@@ -640,11 +671,13 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     var nr = this.rule('near');
     if (nr) {
       var R = +nr.dist || 260;
-      if (su < R) { if (this.nearArmed) { this.nearArmed = false; this.trigger('near'); } }
-      else if (su > R * 1.5) this.nearArmed = true;
+      if (su < R) { if (this.nearSince == null) this.nearSince = t; }
+      else if (su > R * 1.4) { this.nearArmed = true; this.nearSince = null; }
+      else this.nearSince = null;
     }
   };
   Engine.prototype.click = function () {
+    if (this.sleeping()) { this.input(); return; }
     this.input();
     var sr = this.rule('spam');
     if (sr) {
@@ -655,8 +688,15 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     }
     this.trigger('click');
   };
-  Engine.prototype.key = function () { this.trigger('type'); };
+  Engine.prototype.key = function () {
+    if (this.sleeping()) { this.input(); return; }
+    var r = this.rule('type');
+    this.typeUntil = now() + ((r && +r.gap) || 0.8) * 1000;
+    if (this.one && this.one.sustain) { this.input(); return; }
+    this.trigger('type');
+  };
   Engine.prototype.stateRule = function () {
+    if (!this.auto) return null;
     var hour = this.hour != null ? this.hour : new Date().getHours();
     var idle = (this.t - this.lastInput) / 1000;
     var rules = this.p.rules || [];
@@ -664,36 +704,58 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       var r = rules[i];
       if (!findClip(this.p, r.clip)) continue;
       if (r.event === 'idle' && idle >= (+r.sec || 30)) return r;
-      if (r.event === 'time' && inHours(hour, r.from, r.to)) return r;
+      if (r.event === 'time' && inHours(hour, r.from, r.to) && idle >= (r.sec != null ? +r.sec : 8)) return r;
     }
     return null;
   };
+  function followMode(clip, tl) {
+    if (!clip || !clip.follow) return null;
+    if (typeof clip.follow === 'string') return clip.follow;
+    var m = null;
+    for (var i = 0; i < clip.follow.length; i++) if (clip.follow[i][0] <= tl + 1e-6) m = clip.follow[i][1];
+    return m || 'on';
+  }
   Engine.prototype.update = function (t) {
     this.t = t;
     var p = this.p, self = this, rules = p.rules || [], base = p.baseClip || null;
     var idleSec = (t - this.lastInput) / 1000;
-    rules.forEach(function (r) {
-      if (r.event !== 'random') return;
-      var mn = Math.max(0.5, +r.min || 3), mx = Math.max(mn, +r.max || mn);
-      var next = self.nextRand[r.id];
-      if (next == null) { self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn)); return; }
-      if (t < next) return;
-      self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
-      // 평소 동작 중이고, 다른 동작이 없고, 사용자가 잠시 조용할 때만
-      if (self.one || self.layer !== base || idleSec < (+r.quiet || 0)) return;
-      var pool = (r.clips && r.clips.length ? r.clips : [r.clip]).filter(function (id) { return findClip(p, id); });
-      if (!pool.length) return;
-      var pick = pool[Math.floor(Math.random() * pool.length)];
-      if (pool.length > 1 && pick === self.lastPick[r.id]) pick = pool[(pool.indexOf(pick) + 1) % pool.length];
-      self.lastPick[r.id] = pick;
-      self._start(pick, true, false);
-    });
+    if (this.auto) {
+      // 가까이 머무름
+      var nr = this.rule('near');
+      if (nr && this.nearArmed && this.nearSince != null && t - this.nearSince >= (+nr.dwell || 0) * 1000) {
+        if (this.trigger('near')) this.nearArmed = false;
+        else if (!(this.one)) this.nearArmed = false;
+      }
+      rules.forEach(function (r) {
+        if (r.event !== 'random') return;
+        var mn = Math.max(0.5, +r.min || 3), mx = Math.max(mn, +r.max || mn);
+        var next = self.nextRand[r.id];
+        if (next == null) { self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn)); return; }
+        if (t < next) return;
+        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
+        if (self.one || self.layer !== base || idleSec < (+r.quiet || 0)) return;
+        var pool = (r.clips && r.clips.length ? r.clips : [r.clip]).filter(function (id) {
+          var c = findClip(p, id);
+          if (!c) return false;
+          if (self.opt.reduce && c.big) return false;
+          if (c.cool && self.played[id] != null && t - self.played[id] < c.cool * 1000) return false;
+          return true;
+        });
+        if (pool.length > 1) pool = pool.filter(function (id) { return id !== self.lastPick[r.id]; });
+        if (!pool.length) return;
+        var tot = 0; pool.forEach(function (id) { tot += findClip(p, id).weight != null ? +findClip(p, id).weight : 1; });
+        var x = Math.random() * tot, pick = pool[0];
+        for (var i = 0; i < pool.length; i++) { x -= findClip(p, pool[i]).weight != null ? +findClip(p, pool[i]).weight : 1; if (x <= 0) { pick = pool[i]; break; } }
+        self.lastPick[r.id] = pick;
+        self._start(pick, { weak: true });
+      });
+    }
     var sr = this.stateRule(), sid = sr ? sr.id : null;
     if (this.stateId !== undefined && sid !== this.stateId) {
       var prevR = null;
       for (var i = 0; i < rules.length; i++) if (rules[i].id === this.stateId) prevR = rules[i];
-      if (sr && sr.enter && findClip(p, sr.enter)) this._start(sr.enter, false, true);
-      else if (prevR && prevR.exit && findClip(p, prevR.exit)) this._start(prevR.exit, false, true);
+      if (sr && sr.enter && findClip(p, sr.enter)) this._start(sr.enter, { locked: true });
+      else if (prevR && prevR.exit && findClip(p, prevR.exit) && this.auto) this._start(prevR.exit, { locked: true });
     }
     this.stateId = sid;
     var layer = sr ? sr.clip : base;
@@ -701,28 +763,37 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       if (this.layer !== undefined) this._snap();
       this.layer = layer; this.layerStart = t;
     }
-    var clip = findClip(p, layer), pose = {};
+    var clip = findClip(p, layer), pose = {}, ltl = 0;
     if (clip) {
       var el = (t - this.layerStart) / 1000;
-      var tl = clip.loop ? (clip.dur > 0 ? el % clip.dur : 0) : Math.min(el, clip.dur);
-      pose = clipPose(p, clip, tl);
+      ltl = clip.loop ? (clip.dur > 0 ? el % clip.dur : 0) : Math.min(el, clip.dur);
+      pose = clipPose(p, clip, ltl);
     }
-    var oc = null;
+    var oc = null, otl = 0;
     if (this.one) {
       oc = findClip(p, this.one.id);
-      var to = (t - this.one.start) / 1000;
-      if (!oc || to >= oc.dur) {
+      otl = (t - this.one.start) / 1000;
+      if (oc && this.one.sustain && otl >= oc.dur && t < this.typeUntil) {
+        this.one.start = t - this.one.loopFrom * 1000; otl = this.one.loopFrom;   // 입력이 이어지면 이어서
+      }
+      if (!oc || otl >= oc.dur) {
+        var endId = (this.one.sustain || this.one.manual) ? this.one.endId : null, man = this.one.manual;
         this._snap(); this.one = null; oc = null;
-      } else {
-        var op = clipPose(p, oc, to);
+        if (endId && findClip(p, endId)) {   // 이어지는 동작 (타자 마무리, 미리보기 연속 재생)
+          this._start(endId, { manual: man, locked: man, endId: man ? findClip(p, endId).previewNext : null });
+          oc = findClip(p, endId); otl = 0;
+        }
+      }
+      if (oc) {
+        var op = clipPose(p, oc, otl);
         for (var pid in op) {
           var dst = pose[pid] || (pose[pid] = {});
           for (var k in op[pid]) dst[k] = op[pid][k];
         }
       }
     }
-    // 눈 따라보기: 동작마다 켜짐(on) / 멈춤(hold) / 가운데(center)
-    var fm = (oc && oc.follow) || (clip && clip.follow) || 'on';
+    // 눈 따라보기: 동작마다(시간별로) 켜짐 on / 멈춤 hold / 정면 center
+    var fm = (oc && followMode(oc, otl)) || (clip && followMode(clip, ltl)) || 'on';
     if (fm !== 'hold') {
       var tx = fm === 'center' ? 0 : this.followT.x, ty = fm === 'center' ? 0 : this.followT.y;
       this.follow.x += (tx - this.follow.x) * 0.12;
@@ -748,6 +819,14 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       }
     }
     this.last = off;
+    if (this.opt.reduce) {   // 애니메이션 줄이기: 이동·회전·늘어남을 작게
+      var res = {};
+      for (var rid in off) {
+        var o2 = off[rid];
+        res[rid] = { x: o2.x * 0.25, y: o2.y * 0.25, rot: o2.rot * 0.35, sx: 1 + (o2.sx - 1) * 0.35, sy: 1 + (o2.sy - 1) * 0.35, op: o2.op, img: o2.img };
+      }
+      return res;
+    }
     return off;
   };
 
@@ -760,14 +839,18 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     return null;
   }
 
-  function SitePet(p) {
+  function SitePet(p, opt) {
+    opt = opt || {};
     var d = {}, base = { size: 140, corner: 'right', margin: 16, hideOnMobile: true, closable: true };
     for (var k in base) d[k] = base[k];
     for (k in (p.display || {})) d[k] = p.display[k];
+    if (opt.mobile === 'show') d.hideOnMobile = false;
+    if (opt.mobile === 'hide') d.hideOnMobile = true;
     if (d.hideOnMobile && global.matchMedia && matchMedia('(max-width: 640px)').matches) return;
-    var reduce = global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var reduce = !!(global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
     var side = d.corner === 'left' ? 'left' : 'right', other = side === 'left' ? 'right' : 'left';
     var size = Math.max(40, +d.size || 140), margin = Math.max(0, +d.margin || 0);
+    var self = this;
 
     var wrap = document.createElement('div');
     wrap.setAttribute('data-charo-pet', '');
@@ -776,22 +859,22 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     var cv = document.createElement('canvas');
     cv.setAttribute('role', 'img');
     cv.setAttribute('aria-label', p.name || '캐릭터');
-    cv.style.cssText = 'width:100%;height:100%;display:block;pointer-events:auto;cursor:pointer;touch-action:manipulation;';
+    // 캐릭터가 그려진 곳에서만 클릭을 받고, 투명한 곳은 아래 페이지로 통과
+    cv.style.cssText = 'width:100%;height:100%;display:block;pointer-events:none;cursor:pointer;touch-action:manipulation;';
     wrap.appendChild(cv);
 
-    var btnCss = 'position:absolute;top:-4px;' + other + ':-4px;width:24px;height:24px;border-radius:50%;' +
+    var btnCss = 'position:absolute;top:' + Math.round(size * 0.12) + 'px;' + other + ':-4px;width:24px;height:24px;border-radius:50%;' +
       'border:1px solid rgba(0,0,0,.18);background:#fff;color:#333;font:16px/1 system-ui,sans-serif;' +
       'cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .2s;padding:0;';
-    var close = null, tab = null, hidden = false;
+    var close = null, tab = null, hidden = false, overChar = false;
     if (d.closable) {
       close = document.createElement('button');
       close.type = 'button';
       close.setAttribute('aria-label', '캐릭터 숨기기');
-      close.textContent = '\u00D7';
+      close.textContent = '×';
       close.style.cssText = btnCss;
       wrap.appendChild(close);
-      wrap.addEventListener('pointerenter', function () { close.style.opacity = '1'; });
-      wrap.addEventListener('pointerleave', function () { close.style.opacity = '0'; });
+      close.addEventListener('pointerenter', function () { close.style.opacity = '1'; });
       close.addEventListener('focus', function () { close.style.opacity = '1'; });
       close.addEventListener('blur', function () { close.style.opacity = '0'; });
       tab = document.createElement('button');
@@ -814,16 +897,15 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     resize();
     global.addEventListener('resize', resize);
 
-    var eng = new Engine(p);
-    var noFollow = { x: 0, y: 0 };
+    var eng = new Engine(p, { reduce: reduce });
     var S = p.stage || { w: 400, h: 400 };
     var raf = 0;
 
     function draw(t) {
-      var off = reduce ? offsetsFrom(p, {}) : eng.update(t);
+      var off = eng.update(t);
       var sc = size / Math.max(S.w, S.h) * dpr;
       var view = [sc, 0, 0, sc, (cv.width - S.w * sc) / 2, (cv.height - S.h * sc) / 2];
-      var fp = finalPose(p, off, reduce ? noFollow : eng.follow);
+      var fp = finalPose(p, off, eng.follow);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, cv.width, cv.height);
       render(ctx, p, fp, worldMatrices(p, fp), view);
@@ -848,25 +930,53 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       if (store('charoPetHidden') === '1') setHidden(true);
     }
 
+    function hit(cx, cy) {
+      var r = cv.getBoundingClientRect();
+      if (cx < r.left || cy < r.top || cx >= r.right || cy >= r.bottom) return false;
+      try {
+        var x = Math.floor((cx - r.left) / r.width * cv.width), y = Math.floor((cy - r.top) / r.height * cv.height);
+        return ctx.getImageData(x, y, 1, 1).data[3] > 24;
+      } catch (e) { return true; }
+    }
     document.addEventListener('pointermove', function (e) {
-      if (reduce || hidden) return;
+      if (hidden) return;
       var r = cv.getBoundingClientRect();
       eng.pointer(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2), r.width / Math.max(S.w, S.h));
+      var h = hit(e.clientX, e.clientY);
+      if (h !== overChar) {
+        overChar = h;
+        cv.style.pointerEvents = h ? 'auto' : 'none';
+        if (close) close.style.opacity = h ? '1' : '0';
+        if (h) eng.trigger('hover');
+      }
     }, { passive: true });
-    document.addEventListener('keydown', function () { if (!reduce) eng.key(); });
+    document.addEventListener('pointerdown', function (e) {
+      if (hidden || e.pointerType === 'mouse') return;
+      if (hit(e.clientX, e.clientY)) { if (close) close.style.opacity = '1'; eng.click(); }
+    }, { passive: true });
+    document.addEventListener('keydown', function () { eng.key(); });
     global.addEventListener('scroll', function () { eng.input(); }, { passive: true });
-    cv.addEventListener('click', function () { if (!reduce) eng.click(); });
-    cv.addEventListener('pointerenter', function () { if (!reduce) eng.trigger('hover'); });
+    cv.addEventListener('click', function (e) { if (e.pointerType && e.pointerType !== 'mouse') return; eng.click(); });
     document.addEventListener('visibilitychange', wake);
     wake();
+
+    // 미리보기·개발용
+    this.engine = eng;
+    this.play = function (id) { if (hidden) setHidden(false); wake(); return eng.play(id); };
+    this.setAuto = function (on) { eng.setAuto(on); };
+    this.clips = function () { return (p.clips || []).map(function (c) { return { id: c.id, name: c.name, dur: c.dur, loop: !!c.loop }; }); };
+    this.data = p;
+    global.CharoPet.site = this;
+    try { document.dispatchEvent(new CustomEvent('charopet:ready', { detail: this })); } catch (e) {}
   }
 
   function mount(script) {
     var src = script.getAttribute('data-src') || 'charo-pet.json';
+    var opt = { mobile: script.getAttribute('data-mobile') };
     function start() {
       fetch(src, { cache: 'no-cache' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (p) { return preload(p).then(function () { new SitePet(p); }); })
+        .then(function (p) { return preload(p).then(function () { new SitePet(p, opt); }); })
         .catch(function (e) { console.warn('[charo-pet] 캐릭터 파일을 불러오지 못했습니다:', src, e); });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
@@ -878,7 +988,7 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     findClip: findClip, findPart: findPart, clipPose: clipPose, offsetsFrom: offsetsFrom,
     finalPose: finalPose, mul: mul, inv: inv, apply: apply, localM: localM,
     worldMatrices: worldMatrices, imgFor: imgFor, preload: preload, render: render,
-    Engine: Engine, mount: mount, inHours: inHours
+    Engine: Engine, mount: mount, inHours: inHours, site: null
   };
 
   var cs = document.currentScript;
@@ -1191,7 +1301,8 @@ function drawOverlay(fp, W) {
   var vr = part.images[f.img] || part.images[0];
   if (!vr) return;
   var M = CP.mul(viewM(), W[part.id]);
-  var pts = [[0, 0], [vr.w, 0], [vr.w, vr.h], [0, vr.h]].map(function (p) { return CP.apply(M, p[0], p[1]); });
+  var ox = vr.x || 0, oy = vr.y || 0;
+  var pts = [[ox, oy], [ox + vr.w, oy], [ox + vr.w, oy + vr.h], [ox, oy + vr.h]].map(function (p) { return CP.apply(M, p[0], p[1]); });
   var accent = cssVar('--accent'), panel = cssVar('--panel');
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1255,7 +1366,8 @@ function hitTest(sx, sy, fp, W) {
     var vr = part.images[f.img] || part.images[0];
     if (!vr) continue;
     var q = CP.apply(CP.inv(W[part.id]), sx, sy);
-    if (q[0] >= 0 && q[1] >= 0 && q[0] <= vr.w && q[1] <= vr.h && alphaAt(vr, q[0], q[1])) return part.id;
+    var qx = q[0] - (vr.x || 0), qy = q[1] - (vr.y || 0);
+    if (qx >= 0 && qy >= 0 && qx <= vr.w && qy <= vr.h && alphaAt(vr, qx, qy)) return part.id;
   }
   return null;
 }
@@ -1488,6 +1600,11 @@ function renderInspector() {
       '<span class="unit">' + UNIT[p] + '</span>' +
       (c ? '<button class="kbtn" id="k_' + p + '" aria-label="' + lbl[p] + ' 키 찍기/지우기" title="키 찍기/지우기"><i></i></button>' : '<span></span>') + '</div>';
   });
+  if (P.faces && P.faces.length) {
+    h += '<div class="field"><label for="faceSel">표정 프리셋</label><div class="inline"><select id="faceSel">' +
+      P.faces.map(function (f, i) { return '<option value="' + i + '">' + esc(f.name) + '</option>'; }).join('') + '</select>' +
+      '<button class="btn sm" id="bFace">' + (c ? '이 시점에 찍기' : '기본 표정으로') + '</button></div></div>';
+  }
   h += '<div class="prow img"><label for="sel_img">그림</label><select id="sel_img">' +
     part.images.map(function (v, i) { return '<option value="' + i + '">' + esc(v.name || ('그림 ' + (i + 1))) + '</option>'; }).join('') + '</select>' +
     (c ? '<button class="kbtn" id="k_img" aria-label="그림 키 찍기/지우기" title="키 찍기/지우기"><i></i></button>' : '<span></span>') + '</div>';
@@ -1569,6 +1686,12 @@ function bindInspector(part) {
     else { setKey(c, part.id, 'img', S.t, imgVal(part)); S.selKey = { pid: part.id, prop: 'img', t: r2(S.t) }; }
     refreshLight(); renderInspector();
   });
+  var bf = $('bFace');
+  if (bf) bf.addEventListener('click', function () {
+    var f = P.faces[+$('faceSel').value]; if (!f) return;
+    pushUndo(); applyFace(f, c);
+    refreshLight(); renderInspector(); toast('"' + f.name + '" 표정을 ' + (c ? S.t.toFixed(2) + '초에 찍었어요' : '기본 표정으로 정했어요'));
+  });
   var ka = $('bKeyAll');
   if (ka) ka.addEventListener('click', function () {
     pushUndo();
@@ -1640,6 +1763,26 @@ function updateInspectorValues() {
   var it = $('iTime');
   if (it) it.textContent = S.t.toFixed(2);
 }
+// 표정 프리셋: 눈·눈썹·입 그림과 변형(눈썹 기울기, 입 크기 등)을 한 번에
+var FACE_PROPS = { browL: ['rot', 'y'], browR: ['rot', 'y'], eyeL: ['sy'], eyeR: ['sy'], mouth: ['sx', 'sy'] };
+function applyFace(f, c) {
+  for (var pid in f.img) {
+    var part = CP.findPart(P, pid); if (!part) continue;
+    if (!c) part.rest.img = f.img[pid];
+    else setKey(c, pid, 'img', S.t, f.img[pid], { f: 0.04 });
+  }
+  if (!c) return;
+  for (var pid2 in FACE_PROPS) {
+    if (!CP.findPart(P, pid2)) continue;
+    FACE_PROPS[pid2].forEach(function (prop) {
+      var m = f.mods && f.mods[pid2] && f.mods[pid2][prop];
+      var hasTrack = !!track(c, pid2, prop, false);
+      if (m == null && !hasTrack) return;
+      var v = m != null ? m : CP.DEF[prop];
+      setKey(c, pid2, prop, S.t, v);
+    });
+  }
+}
 function deleteSelKey() {
   var c = curClip(), sk = S.selKey;
   if (!c || !sk || !findSelKey()) return;
@@ -1655,13 +1798,15 @@ function syncClipBar() {
   $('clipSel').innerHTML = '<option value="rest">기본 자세 (움직임 없음)</option>' +
     P.clips.map(function (cl) { return '<option value="' + esc(cl.id) + '">' + esc(cl.name) + (cl.loop ? ' · 반복' : '') + '</option>'; }).join('');
   $('clipSel').value = S.clip;
-  ['clipName', 'clipDur', 'clipLoop', 'clipFollow', 'bPlay', 'bRewind', 'bDupClip', 'bDelClip'].forEach(function (id) { $(id).disabled = !c || S.mode === 'test'; });
+  ['clipName', 'clipDur', 'clipLoop', 'clipFollow', 'clipCool', 'clipWeight', 'bPlay', 'bRewind', 'bDupClip', 'bDelClip'].forEach(function (id) { $(id).disabled = !c || S.mode === 'test'; });
   $('bNewClip').disabled = S.mode === 'test';
   $('clipSel').disabled = S.mode === 'test';
   if (document.activeElement !== $('clipName')) $('clipName').value = c ? c.name : '';
   if (document.activeElement !== $('clipDur')) $('clipDur').value = c ? c.dur : '';
   $('clipLoop').checked = c ? !!c.loop : false;
-  $('clipFollow').value = c && c.follow ? c.follow : 'on';
+  $('clipFollow').value = c && c.follow ? (typeof c.follow === 'string' ? c.follow : 'mixed') : 'on';
+  if (document.activeElement !== $('clipCool')) $('clipCool').value = c && c.cool != null ? c.cool : '';
+  if (document.activeElement !== $('clipWeight')) $('clipWeight').value = c && c.weight != null ? c.weight : '';
   $('bPlay').textContent = S.playing ? '일시정지' : '재생';
   $('timeline').classList.toggle('locked', S.mode === 'test');
   updateTimeText();
@@ -1790,6 +1935,8 @@ $('clipDur').addEventListener('change', function (e) {
   var v = clamp(r2(parseFloat(e.target.value) || c.dur), 0.1, 30);
   pushUndo(); c.dur = v; S.t = Math.min(S.t, v); renderTimeline(); drawStage(); scheduleSave();
 });
+$('clipCool').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); var v = parseFloat(e.target.value); if (isFinite(v) && v > 0) c.cool = v; else delete c.cool; scheduleSave(); });
+$('clipWeight').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); var v = parseFloat(e.target.value); if (isFinite(v) && v >= 0) c.weight = v; else delete c.weight; scheduleSave(); });
 $('clipFollow').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); if (e.target.value === 'on') delete c.follow; else c.follow = e.target.value; scheduleSave(); });
 $('clipLoop').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); c.loop = e.target.checked; renderTimeline(); scheduleSave(); });
 $('bNewClip').addEventListener('click', function () {
@@ -1815,7 +1962,10 @@ $('bDelClip').addEventListener('click', function (e) {
   P.rules.forEach(function (r) {
     if (r.clip === c.id) r.clip = '';
     if (r.clips) { r.clips = r.clips.filter(function (x) { return x !== c.id; }); if (r.event === 'random') r.clip = r.clips[0] || ''; }
-    ['clipLeft', 'enter', 'exit'].forEach(function (f) { if (r[f] === c.id) delete r[f]; });
+    ['clipLeft', 'enter', 'exit', 'end'].forEach(function (f) { if (r[f] === c.id) delete r[f]; });
+  });
+  P.preview = (P.preview || []).filter(function (x) { return x.clip !== c.id; });
+  P.clips.forEach(function (o) { if (o.previewNext === c.id) delete o.previewNext; 
   });
   if (P.baseClip === c.id) P.baseClip = null;
   S.clip = 'rest'; S.selKey = null; play(false);
@@ -1867,15 +2017,20 @@ function renderRules() {
         }).join('') + '</div>';
     } else if (r.event === 'idle' || r.event === 'time') {
       if (r.event === 'idle') h += numIn('sec', r.sec || 30, 1, '초') + '초 동안 마우스·키보드 입력이 없으면';
-      else h += '<select data-f="from" aria-label="시작 시각">' + hourOptions(r.from) + '</select>부터 <select data-f="to" aria-label="끝 시각">' + hourOptions(r.to) + '</select>까지';
+      else h += '<select data-f="from" aria-label="시작 시각">' + hourOptions(r.from) + '</select>부터 <select data-f="to" aria-label="끝 시각">' + hourOptions(r.to) + '</select>까지, ' + numIn('sec', r.sec != null ? r.sec : 8, 1, '초') + '초 가만히 있으면';
       h += '<div class="field" style="width:100%"><label>시작할 때</label><select data-f="enter">' + clipOptions(r.enter, '바로 반복') + '</select></div>' +
         '<div class="field" style="width:100%"><label>끝날 때</label><select data-f="exit">' + clipOptions(r.exit, '바로 평소로') + '</select></div>';
     } else {
-      if (r.event === 'near') h += '캐릭터 중심에서 무대 ' + numIn('dist', r.dist || 260, 10, '거리') + '칸 안으로, ';
+      if (r.event === 'near') h += '캐릭터 중심에서 무대 ' + numIn('dist', r.dist || 260, 10, '거리') + '칸 안에 ' + numIn('dwell', r.dwell || 0, 0.1, '머무는 시간') + '초 머물면, ';
+      if (r.event === 'type') h += '<label class="check" style="width:100%"><input type="checkbox" data-f="sustain"' + (r.sustain ? ' checked' : '') + '> 입력이 이어지는 동안 이어서 재생</label>' +
+        (r.sustain ? numIn('loopFrom', r.loopFrom || 0, 0.05, '반복 시작') + '초부터 반복, 입력이 ' + numIn('gap', r.gap || 0.8, 0.1, '멈춤 판단') + '초 멈추면 ' +
+          '<select data-f="end" aria-label="마무리 동작" style="width:auto">' + clipOptions(r.end, '마무리 없음') + '</select>' : '');
+      if (r.event === 'click' || r.event === 'spam' || r.event === 'type') h += '다시 하기까지 ' + numIn('cooldown', r.cooldown || 0, 1, '쉬는 시간') + '초 쉬기';
       if (r.event === 'flick') h += '초당 ' + numIn('speed', r.speed || 3500, 100, '속도', 76) + 'px 넘게, ';
       if (r.event === 'spam') h += numIn('window', r.window || 1.6, 0.1, '초') + '초 안에 ' + numIn('count', r.count || 4, 1, '번') + '번, ';
       if (r.event === 'near' || r.event === 'flick') h += '다시 하기까지 ' + numIn('cooldown', r.cooldown || 0, 1, '쉬는 시간') + '초 쉬기';
-      h += '<label class="check" style="width:100%"><input type="checkbox" data-f="interrupt"' + (r.interrupt ? ' checked' : '') + '> 다른 동작 중이어도 끊고 시작</label>';
+      h += '<label class="check" style="width:100%"><input type="checkbox" data-f="interrupt"' + (r.interrupt ? ' checked' : '') + '> 다른 동작 중이어도 끊고 시작</label>' +
+        '<label class="check" style="width:100%"><input type="checkbox" data-f="lock"' + (r.lock ? ' checked' : '') + '> 끝날 때까지 다른 반응 받지 않기</label>';
       if (SIDED[r.event]) h += '<div class="field" style="width:100%"><label>커서가 왼쪽이면</label><select data-f="clipLeft">' + clipOptions(r.clipLeft, '같은 동작') + '</select></div>';
     }
     h += '<span class="tag' + (isState ? ' state' : '') + '">' + (isState ? '조건이 맞는 동안 반복' : isRand ? '가끔 혼자' : '한 번 재생') + '</span></div></div>';
@@ -1897,8 +2052,8 @@ $('tab-rules').addEventListener('change', function (e) {
   var card = e.target.closest('.rule'); if (!card) return;
   var r = P.rules[+card.dataset.i], f = e.target.dataset.f; if (!r || !f) return;
   pushUndo();
-  var num = { min: 0.5, max: 0.5, sec: 1, dist: 10, speed: 200, cooldown: 0, count: 2, window: 0.2, quiet: 0 };
-  if (f === 'interrupt') r.interrupt = e.target.checked;
+  var num = { min: 0.5, max: 0.5, sec: 0, dist: 10, speed: 200, cooldown: 0, count: 2, window: 0.2, quiet: 0, dwell: 0, loopFrom: 0, gap: 0.2 };
+  if (f === 'interrupt' || f === 'lock' || f === 'sustain') { r[f] = e.target.checked; if (f === 'sustain') renderRules(); }
   else if (f === 'pool') {
     var pool = r.clips && r.clips.length ? r.clips.slice() : (r.clip ? [r.clip] : []), id = e.target.dataset.cid;
     if (e.target.checked) { if (pool.indexOf(id) < 0) pool.push(id); } else pool = pool.filter(function (x) { return x !== id; });
@@ -1906,7 +2061,7 @@ $('tab-rules').addEventListener('change', function (e) {
   }
   else if (num[f] != null) r[f] = Math.max(num[f], parseFloat(e.target.value) || num[f]);
   else if (f === 'from' || f === 'to') r[f] = +e.target.value;
-  else if (f === 'clipLeft' || f === 'enter' || f === 'exit') { if (e.target.value) r[f] = e.target.value; else delete r[f]; }
+  else if (f === 'clipLeft' || f === 'enter' || f === 'exit' || f === 'end') { if (e.target.value) r[f] = e.target.value; else delete r[f]; }
   else r[f] = e.target.value;
   if (f === 'event') {
     var d = RULE_DEF[r.event] || {};
@@ -1990,6 +2145,8 @@ function setMode(m) {
     play(false); S.pivotEdit = false;
     eng = new CP.Engine(P);
     eng.hour = $('tHour').value === '' ? null : +$('tHour').value;
+    if ($('tAuto').checked) eng.setAuto(false);
+    renderPreviewRow();
     CP.preload(P).then(function () { if (S.mode === 'test') rafTest = requestAnimationFrame(testTick); });
   } else { eng = null; drawStage(); }
   renderTimeline(); renderInspector(); updateHints();
@@ -2021,15 +2178,21 @@ $('mEdit').addEventListener('click', function () { setMode('edit'); });
 $('mTest').addEventListener('click', function () { setMode('test'); });
 $('tType').addEventListener('click', function () { if (eng) eng.key(); });
 $('tFlick').addEventListener('click', function () { if (eng) eng.trigger('flick'); });
-$('tAct').addEventListener('click', function () {
-  if (!eng) return;
-  var pool = [];
-  P.rules.forEach(function (r) { if (r.event === 'random' && (+r.max || 0) >= 8) pool = pool.concat(r.clips && r.clips.length ? r.clips : [r.clip]); });
-  pool = pool.filter(function (id) { return CP.findClip(P, id); });
-  if (!pool.length) { toast('"가끔 혼자" 규칙에 고른 동작이 없어요'); return; }
-  eng._actIdx = ((eng._actIdx == null ? -1 : eng._actIdx) + 1) % pool.length;
-  eng.input(); eng._start(pool[eng._actIdx], true, false);
+function previewList() {
+  var list = (P.preview || []).filter(function (x) { return CP.findClip(P, x.clip); });
+  if (!list.length) list = P.clips.filter(function (c) { return !c.loop; }).map(function (c) { return { label: c.name, clip: c.id }; });
+  return list;
+}
+function renderPreviewRow() {
+  $('pvRow').innerHTML = previewList().map(function (x) {
+    return '<button class="btn sm" data-pv="' + esc(x.clip) + '"' + (x.extra ? ' style="opacity:.75"' : '') + '>' + esc(x.label) + '</button>';
+  }).join('');
+}
+$('pvRow').addEventListener('click', function (e) {
+  var b = e.target.closest('[data-pv]'); if (!b || !eng) return;
+  eng.play(b.dataset.pv);
 });
+$('tAuto').addEventListener('change', function (e) { if (eng) eng.setAuto(!e.target.checked); });
 $('tIdle').addEventListener('click', function () {
   if (!eng) return;
   var mx = 0; P.rules.forEach(function (r) { if (r.event === 'idle') mx = Math.max(mx, +r.sec || 30); });
