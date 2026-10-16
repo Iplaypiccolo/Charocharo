@@ -5,6 +5,8 @@
 - 사이트: https://iplaypiccolo.github.io/Charocharo/
 - 모션 에디터: https://iplaypiccolo.github.io/Charocharo/editor.html
 
+프로젝트 목적, 동작 원리, 파츠 그림 조건, 에디터 사용법은 [ABOUT.md](ABOUT.md)에 정리되어 있습니다.
+
 ## 파일
 
 | 파일 | 역할 |
