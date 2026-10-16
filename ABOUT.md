@@ -300,8 +300,10 @@
 
 ## 부록. 모션 하나만 다른 사이트에 넣기
 
-`charo-fly.json`은 `02 날고 싶어! 그런데 안 떠…` 하나만 담은 캐릭터 파일입니다(숨쉬기·깜빡임 포함, 이 모션에 쓰는 그림만 남겨 용량을 줄임). 클릭하면 재생하고, 가만히 두면 18~35초마다 혼자 재생합니다. 다른 모션으로 같은 파일을 만들려면 `tools/make_single.py <동작ID> <파일이름>`을 씁니다.
+`charo-fly.js`는 `02 날고 싶어! 그런데 안 떠…` 하나만 담은 **한 파일 버전**입니다. 재생기와 캐릭터 데이터(이 모션에 쓰는 그림만)가 파일 하나에 들어 있어서, 다른 사이트 저장소에 이 파일만 복사해 넣고 아래 한 줄을 붙이면 됩니다. 이 저장소를 거치지 않으므로 이 저장소가 바뀌거나 멈춰도 그 사이트는 영향을 받지 않습니다. 숨쉬기·깜빡임 포함, 클릭하면 재생, 가만히 두면 18~35초마다 혼자 재생합니다.
 
 ```html
-<script src="https://iplaypiccolo.github.io/Charocharo/charo-pet.js" data-src="https://iplaypiccolo.github.io/Charocharo/charo-fly.json" data-mobile="show" defer></script>
+<script src="charo-fly.js" data-mobile="show" defer></script>
 ```
+
+`charo-fly.json`은 같은 내용의 데이터만 있는 파일입니다(`charo-pet.js`의 `data-src`로 읽는 방식). 다른 모션으로 만들려면 `tools/make_single.py <동작ID> <파일이름.json>`을 쓰면 .json과 .js가 함께 만들어집니다. 원본 모션을 고치면 이 파일도 다시 만들어 그 사이트에 다시 넣어야 반영됩니다.

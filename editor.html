@@ -983,16 +983,24 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     else start();
   }
 
+  // 캐릭터 데이터를 이 파일 안에 함께 넣은 한 파일 버전(window.CHARO_PET_EMBED)
+  function mountData(p, opt) {
+    function start() { preload(p).then(function () { new SitePet(p, opt || {}); }); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
+  }
+
   global.CharoPet = {
     PROPS: PROPS, DEF: DEF, EASE: EASE, sampleTrack: sampleTrack, sampleImg: sampleImg,
     findClip: findClip, findPart: findPart, clipPose: clipPose, offsetsFrom: offsetsFrom,
     finalPose: finalPose, mul: mul, inv: inv, apply: apply, localM: localM,
     worldMatrices: worldMatrices, imgFor: imgFor, preload: preload, render: render,
-    Engine: Engine, mount: mount, inHours: inHours, site: null
+    Engine: Engine, mount: mount, mountData: mountData, inHours: inHours, site: null
   };
 
   var cs = document.currentScript;
   if (cs && cs.hasAttribute('data-src')) mount(cs);
+  else if (global.CHARO_PET_EMBED) mountData(global.CHARO_PET_EMBED, { mobile: cs && cs.getAttribute('data-mobile') });
 })(window);
 
 </script>
