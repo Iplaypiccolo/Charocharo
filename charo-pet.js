@@ -220,65 +220,139 @@
   }
 
   // 반응 규칙 엔진
-  function Engine(p) { this.p = p; this.reset(); }
+  // 규칙 종류
+  //  한 번 재생: click, hover, type, near(가까이), flick(휙), spam(연속 클릭)
+  //  가끔 혼자: random (clips 묶음에서 하나씩, 평소 동작 중일 때만)
+  //  상태: idle(가만히), time(시간대) — 조건이 맞는 동안 반복, enter/exit 동작 선택
+  function now() { return (global.performance && performance.now()) || Date.now(); }
+  function Engine(p, opt) { this.p = p; this.opt = opt || {}; this.reset(); }
   Engine.prototype.reset = function () {
-    var n = (global.performance && performance.now()) || 0;
-    this.t = n; this.lastInput = n; this.one = null; this.layer = undefined;
-    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.hour = null;
+    var n = now();
+    this.t = n; this.lastInput = n; this.one = null; this.layer = undefined; this.stateId = undefined;
+    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.lastPick = {}; this.hour = null;
+    this.follow = { x: 0, y: 0 }; this.followT = { x: 0, y: 0 }; this.side = 'right';
+    this.clicks = []; this.ptr = null; this.nearArmed = true; this.cool = {};
   };
-  Engine.prototype.input = function () { this.lastInput = this.t; };
+  Engine.prototype.input = function () { this.lastInput = Math.max(this.t, this.lastInput); };
   Engine.prototype.skipIdle = function (sec) { this.lastInput -= sec * 1000; };
   Engine.prototype._snap = function () {
     if (!this.last) return;
     var c = {};
     for (var pid in this.last) {
+      var o = this.last[pid], part = findPart(this.p, pid);
       c[pid] = {};
-      for (var j = 0; j < PROPS.length; j++) c[pid][PROPS[j]] = this.last[pid][PROPS[j]];
+      for (var j = 0; j < PROPS.length; j++) c[pid][PROPS[j]] = o[PROPS[j]];
+      c[pid].img = o.img ? o.img.img : (part ? part.rest.img || 0 : 0);
     }
     this.blend = { start: this.t, from: c };
   };
+  Engine.prototype._start = function (id, weak, locked) {
+    this._snap();
+    this.one = { id: id, start: this.t, weak: !!weak, locked: !!locked };
+  };
+  Engine.prototype.rule = function (ev) {
+    var rules = this.p.rules || [];
+    for (var i = 0; i < rules.length; i++) {
+      var r = rules[i];
+      if (r.event === ev && (findClip(this.p, r.clip) || findClip(this.p, r.clipLeft))) return r;
+    }
+    return null;
+  };
   Engine.prototype.trigger = function (ev) {
     this.input();
-    var rules = this.p.rules || [], r = null;
-    for (var i = 0; i < rules.length; i++) {
-      if (rules[i].event === ev && findClip(this.p, rules[i].clip)) { r = rules[i]; break; }
-    }
+    var r = this.rule(ev);
     if (!r) return false;
-    // 마우스 올림·랜덤 동작은 가벼운 반응이라 다른 반응이 오면 바로 양보
-    if (this.one && !this.one.weak && !r.interrupt) return false;
-    if (this.one && this.one.weak && ev === 'hover') return false;
-    this._snap();
-    this.one = { id: r.clip, start: this.t, weak: ev === 'hover' };
+    if (r.cooldown && this.cool[r.id] != null && this.t - this.cool[r.id] < r.cooldown * 1000) return false;
+    var weak = ev === 'hover' || ev === 'near';
+    if (this.one) {
+      if (this.one.locked) return false;
+      if (!this.one.weak && !r.interrupt) return false;
+      if (this.one.weak && weak) return false;
+    }
+    var id = (this.side === 'left' && findClip(this.p, r.clipLeft)) ? r.clipLeft : r.clip;
+    if (!findClip(this.p, id)) id = r.clipLeft;
+    this.cool[r.id] = this.t;
+    this._start(id, weak, false);
     return true;
   };
-  Engine.prototype.stateClip = function () {
+  // 마우스 위치: 캐릭터 중심 기준 화면 px, unit = 무대 1칸이 화면에서 몇 px인지
+  Engine.prototype.pointer = function (dx, dy, unit) {
+    var t = now(), prev = this.ptr;
+    this.ptr = { x: dx, y: dy, t: t };
+    this.input();
+    this.side = dx < 0 ? 'left' : 'right';
+    var len = Math.sqrt(dx * dx + dy * dy), su = len / (unit || 1);
+    var k = Math.min(1, su / (this.opt.followRange || 600));
+    if (len < 1) { this.followT.x = 0; this.followT.y = 0; }
+    else { this.followT.x = dx / len * k; this.followT.y = dy / len * k; }
+    var fr = this.rule('flick');
+    if (fr && prev) {
+      var dt = (t - prev.t) / 1000;
+      if (dt > 0.004 && dt < 0.12) {
+        var v = Math.sqrt((dx - prev.x) * (dx - prev.x) + (dy - prev.y) * (dy - prev.y)) / dt;
+        if (v >= (+fr.speed || 2600)) this.trigger('flick');
+      }
+    }
+    var nr = this.rule('near');
+    if (nr) {
+      var R = +nr.dist || 260;
+      if (su < R) { if (this.nearArmed) { this.nearArmed = false; this.trigger('near'); } }
+      else if (su > R * 1.5) this.nearArmed = true;
+    }
+  };
+  Engine.prototype.click = function () {
+    this.input();
+    var sr = this.rule('spam');
+    if (sr) {
+      var t = now(), win = (+sr.window || 1.6) * 1000;
+      this.clicks.push(t);
+      this.clicks = this.clicks.filter(function (c) { return t - c <= win; });
+      if (this.clicks.length >= (+sr.count || 4)) { this.clicks = []; if (this.trigger('spam')) return; }
+    }
+    this.trigger('click');
+  };
+  Engine.prototype.key = function () { this.trigger('type'); };
+  Engine.prototype.stateRule = function () {
     var hour = this.hour != null ? this.hour : new Date().getHours();
     var idle = (this.t - this.lastInput) / 1000;
     var rules = this.p.rules || [];
     for (var i = 0; i < rules.length; i++) {
       var r = rules[i];
       if (!findClip(this.p, r.clip)) continue;
-      if (r.event === 'idle' && idle >= (+r.sec || 30)) return r.clip;
-      if (r.event === 'time' && inHours(hour, r.from, r.to)) return r.clip;
+      if (r.event === 'idle' && idle >= (+r.sec || 30)) return r;
+      if (r.event === 'time' && inHours(hour, r.from, r.to)) return r;
     }
-    return this.p.baseClip || null;
+    return null;
   };
   Engine.prototype.update = function (t) {
     this.t = t;
-    var p = this.p, self = this, rules = p.rules || [];
+    var p = this.p, self = this, rules = p.rules || [], base = p.baseClip || null;
+    var idleSec = (t - this.lastInput) / 1000;
     rules.forEach(function (r) {
       if (r.event !== 'random') return;
       var mn = Math.max(0.5, +r.min || 3), mx = Math.max(mn, +r.max || mn);
       var next = self.nextRand[r.id];
-      if (next == null) {
-        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
-      } else if (t >= next) {
-        // 랜덤 동작은 평소 동작 중일 때만 (졸고 있을 때 깜빡이며 눈을 뜨지 않도록)
-        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t, weak: true }; }
-        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
-      }
+      if (next == null) { self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn)); return; }
+      if (t < next) return;
+      self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
+      // 평소 동작 중이고, 다른 동작이 없고, 사용자가 잠시 조용할 때만
+      if (self.one || self.layer !== base || idleSec < (+r.quiet || 0)) return;
+      var pool = (r.clips && r.clips.length ? r.clips : [r.clip]).filter(function (id) { return findClip(p, id); });
+      if (!pool.length) return;
+      var pick = pool[Math.floor(Math.random() * pool.length)];
+      if (pool.length > 1 && pick === self.lastPick[r.id]) pick = pool[(pool.indexOf(pick) + 1) % pool.length];
+      self.lastPick[r.id] = pick;
+      self._start(pick, true, false);
     });
-    var layer = this.stateClip();
+    var sr = this.stateRule(), sid = sr ? sr.id : null;
+    if (this.stateId !== undefined && sid !== this.stateId) {
+      var prevR = null;
+      for (var i = 0; i < rules.length; i++) if (rules[i].id === this.stateId) prevR = rules[i];
+      if (sr && sr.enter && findClip(p, sr.enter)) this._start(sr.enter, false, true);
+      else if (prevR && prevR.exit && findClip(p, prevR.exit)) this._start(prevR.exit, false, true);
+    }
+    this.stateId = sid;
+    var layer = sr ? sr.clip : base;
     if (layer !== this.layer) {
       if (this.layer !== undefined) this._snap();
       this.layer = layer; this.layerStart = t;
@@ -289,10 +363,12 @@
       var tl = clip.loop ? (clip.dur > 0 ? el % clip.dur : 0) : Math.min(el, clip.dur);
       pose = clipPose(p, clip, tl);
     }
+    var oc = null;
     if (this.one) {
-      var oc = findClip(p, this.one.id), to = (t - this.one.start) / 1000;
+      oc = findClip(p, this.one.id);
+      var to = (t - this.one.start) / 1000;
       if (!oc || to >= oc.dur) {
-        this._snap(); this.one = null;
+        this._snap(); this.one = null; oc = null;
       } else {
         var op = clipPose(p, oc, to);
         for (var pid in op) {
@@ -300,6 +376,13 @@
           for (var k in op[pid]) dst[k] = op[pid][k];
         }
       }
+    }
+    // 눈 따라보기: 동작마다 켜짐(on) / 멈춤(hold) / 가운데(center)
+    var fm = (oc && oc.follow) || (clip && clip.follow) || 'on';
+    if (fm !== 'hold') {
+      var tx = fm === 'center' ? 0 : this.followT.x, ty = fm === 'center' ? 0 : this.followT.y;
+      this.follow.x += (tx - this.follow.x) * 0.12;
+      this.follow.y += (ty - this.follow.y) * 0.12;
     }
     var off = offsetsFrom(p, pose);
     if (this.blend) {
@@ -314,6 +397,9 @@
             var pr = PROPS[j];
             off[id][pr] = a[pr] + (off[id][pr] - a[pr]) * u;
           }
+          var part = findPart(p, id);
+          var cur = off[id].img ? off[id].img.img : (part ? part.rest.img || 0 : 0);
+          if (a.img !== cur && !(off[id].img && off[id].img.mix < 1)) off[id].img = { img: cur, prev: a.img, mix: u };
         }
       }
     }
@@ -385,17 +471,15 @@
     global.addEventListener('resize', resize);
 
     var eng = new Engine(p);
-    var follow = { x: 0, y: 0 }, tgt = { x: 0, y: 0 };
+    var noFollow = { x: 0, y: 0 };
     var S = p.stage || { w: 400, h: 400 };
     var raf = 0;
 
     function draw(t) {
       var off = reduce ? offsetsFrom(p, {}) : eng.update(t);
-      follow.x += (tgt.x - follow.x) * 0.12;
-      follow.y += (tgt.y - follow.y) * 0.12;
       var sc = size / Math.max(S.w, S.h) * dpr;
       var view = [sc, 0, 0, sc, (cv.width - S.w * sc) / 2, (cv.height - S.h * sc) / 2];
-      var fp = finalPose(p, off, reduce ? null : follow);
+      var fp = finalPose(p, off, reduce ? noFollow : eng.follow);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, cv.width, cv.height);
       render(ctx, p, fp, worldMatrices(p, fp), view);
@@ -421,17 +505,13 @@
     }
 
     document.addEventListener('pointermove', function (e) {
-      eng.input();
+      if (reduce || hidden) return;
       var r = cv.getBoundingClientRect();
-      var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-      var len = Math.sqrt(dx * dx + dy * dy);
-      if (len < 1) { tgt.x = 0; tgt.y = 0; return; }
-      var kk = Math.min(1, len / 250);
-      tgt.x = dx / len * kk; tgt.y = dy / len * kk;
+      eng.pointer(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2), r.width / Math.max(S.w, S.h));
     }, { passive: true });
-    document.addEventListener('keydown', function () { if (!reduce) eng.trigger('type'); });
+    document.addEventListener('keydown', function () { if (!reduce) eng.key(); });
     global.addEventListener('scroll', function () { eng.input(); }, { passive: true });
-    cv.addEventListener('click', function () { if (!reduce) eng.trigger('click'); });
+    cv.addEventListener('click', function () { if (!reduce) eng.click(); });
     cv.addEventListener('pointerenter', function () { if (!reduce) eng.trigger('hover'); });
     document.addEventListener('visibilitychange', wake);
     wake();

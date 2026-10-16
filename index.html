@@ -43,7 +43,7 @@ h2 { margin: 0; font-size: 17px; font-weight: 600; }
 ul.reacts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 ul.reacts li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-radius: 12px; background: var(--bg); }
 ul.reacts .when { font-size: 15px; }
-ul.reacts .what { font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--yellow-soft); color: var(--ink); white-space: nowrap; }
+ul.reacts .what { font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 12px; background: var(--yellow-soft); color: var(--ink); text-align: right; max-width: 60%; }
 textarea { width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font: inherit; color: inherit; background: var(--bg); }
 textarea:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -81,7 +81,7 @@ footer code { font-family: var(--f-num); }
 
   <section aria-labelledby="h-edit">
     <h2 id="h-edit">움직임 고치기</h2>
-    <p class="hint">모션 에디터에서 파츠를 바꾸고 키프레임과 반응 규칙을 수정한 뒤, 저장한 <code>charo-pet.json</code>을 저장소에 덮어쓰면 이 페이지에 반영돼요. 지금은 기본 표정만 들어 있고, 다른 표정은 준비 중이에요.</p>
+    <p class="hint">모션 에디터에서 파츠를 바꾸고 키프레임과 반응 규칙을 수정한 뒤, 저장한 <code>charo-pet.json</code>을 저장소에 덮어쓰면 이 페이지에 반영돼요.</p>
     <div class="actions">
       <a class="btn main" href="editor.html">모션 에디터 열기</a>
       <a class="btn" href="https://github.com/Iplaypiccolo/Charocharo">GitHub 저장소</a>
@@ -104,7 +104,10 @@ footer code { font-family: var(--f-num); }
     click: function () { return '캐릭터를 클릭하면'; },
     hover: function () { return '캐릭터에 마우스를 올리면'; },
     type: function () { return '키보드를 치면'; },
-    random: function (r) { return '가끔 (' + (r.min || 3) + '~' + (r.max || 6) + '초마다)'; },
+    random: function (r) { return '가끔 혼자 (' + (r.min || 3) + '~' + (r.max || 6) + '초마다)'; },
+    near: function () { return '마우스가 가까이 오면'; },
+    flick: function () { return '마우스를 휙 움직이면'; },
+    spam: function (r) { return (r.window || 1.6) + '초 안에 ' + (r.count || 4) + '번 클릭하면'; },
     idle: function (r) { return (r.sec || 30) + '초 동안 가만히 있으면'; },
     time: function (r) { return (r.from != null ? r.from : 23) + '시부터 ' + (r.to != null ? r.to : 6) + '시까지'; }
   };
@@ -115,7 +118,12 @@ footer code { font-family: var(--f-num); }
     (p.clips || []).forEach(function (c) { name[c.id] = c.name; });
     var rows = [];
     if (p.baseClip && name[p.baseClip]) rows.push(['평소에는', name[p.baseClip]]);
-    (p.rules || []).forEach(function (r) { if (EV[r.event] && name[r.clip]) rows.push([EV[r.event](r), name[r.clip]]); });
+    (p.rules || []).forEach(function (r) {
+      if (!EV[r.event]) return;
+      var ids = r.event === 'random' && r.clips && r.clips.length ? r.clips : [r.clip];
+      var names = ids.filter(function (id, i) { return name[id] && ids.indexOf(id) === i; }).map(function (id) { return name[id].replace(/ \((오른쪽|왼쪽)\)$/, ''); });
+      if (names.length) rows.push([EV[r.event](r), names.join(', ')]);
+    });
     if (!rows.length) return;
     document.getElementById('reacts').innerHTML = rows.map(function (x) {
       return '<li><span class="when">' + esc(x[0]) + '</span><span class="what">' + esc(x[1]) + '</span></li>';

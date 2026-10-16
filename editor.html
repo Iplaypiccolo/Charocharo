@@ -57,7 +57,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .app {
   display: grid;
-  grid-template-columns: 272px minmax(0, 1fr) 312px;
+  grid-template-columns: 260px minmax(0, 1fr) 348px;
   grid-template-rows: auto minmax(0, 1fr) 272px;
   grid-template-areas: "bar bar bar" "parts stage side" "tl tl tl";
   height: 100%;
@@ -167,10 +167,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .keybox h3 { color: var(--accent-text); }
 
 .rule { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 8px; background: var(--panel-2); }
-.rule .top { display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.rule .top { display: grid; grid-template-columns: minmax(0, 1.3fr) 14px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
 .rule .arrow { color: var(--muted); text-align: center; font-size: 12px; }
 .rule .params { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
 .rule .params input[type=number] { width: 64px; font-family: var(--f-num); }
+.rule input[type=checkbox] { width: auto; }
+.rule select { font-size: 12.5px; }
+.rule .field { grid-template-columns: 92px minmax(0, 1fr); }
 .rule .params select { width: auto; }
 .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); }
 .tag.state { border-color: var(--accent); color: var(--accent-text); }
@@ -283,7 +286,9 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     <div class="testbar" id="testBar" hidden>
       <div class="row"><span class="chip live" id="tsLayer"></span><span class="chip" id="tsOne"></span></div>
       <div class="row">
-        <button class="btn sm" id="tType">타자 신호 보내기</button>
+        <button class="btn sm" id="tType">타자 신호</button>
+        <button class="btn sm" id="tFlick">휙 신호</button>
+        <button class="btn sm" id="tAct">혼자 하는 표현 차례로 보기</button>
         <button class="btn sm" id="tIdle">가만히 있는 상태로 건너뛰기</button>
         <label for="tHour">시각 <select id="tHour"></select></label>
       </div>
@@ -310,6 +315,8 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       <label class="hint" for="clipDur">길이</label>
       <input type="number" id="clipDur" min="0.1" max="30" step="0.05" aria-label="동작 길이(초)"><span class="hint">초</span>
       <label class="check"><input type="checkbox" id="clipLoop"> 반복</label>
+      <label class="hint" for="clipFollow">눈</label>
+      <select id="clipFollow" title="이 동작 중 눈이 마우스를 따라볼지"><option value="on">마우스 따라봄</option><option value="hold">그 자리에 멈춤</option><option value="center">정면 보기</option></select>
       <span class="sep" aria-hidden="true"></span>
       <button class="btn sm" id="bPlay">재생</button>
       <button class="btn sm ghost" id="bRewind">처음으로</button>
@@ -557,65 +564,139 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
   }
 
   // 반응 규칙 엔진
-  function Engine(p) { this.p = p; this.reset(); }
+  // 규칙 종류
+  //  한 번 재생: click, hover, type, near(가까이), flick(휙), spam(연속 클릭)
+  //  가끔 혼자: random (clips 묶음에서 하나씩, 평소 동작 중일 때만)
+  //  상태: idle(가만히), time(시간대) — 조건이 맞는 동안 반복, enter/exit 동작 선택
+  function now() { return (global.performance && performance.now()) || Date.now(); }
+  function Engine(p, opt) { this.p = p; this.opt = opt || {}; this.reset(); }
   Engine.prototype.reset = function () {
-    var n = (global.performance && performance.now()) || 0;
-    this.t = n; this.lastInput = n; this.one = null; this.layer = undefined;
-    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.hour = null;
+    var n = now();
+    this.t = n; this.lastInput = n; this.one = null; this.layer = undefined; this.stateId = undefined;
+    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.lastPick = {}; this.hour = null;
+    this.follow = { x: 0, y: 0 }; this.followT = { x: 0, y: 0 }; this.side = 'right';
+    this.clicks = []; this.ptr = null; this.nearArmed = true; this.cool = {};
   };
-  Engine.prototype.input = function () { this.lastInput = this.t; };
+  Engine.prototype.input = function () { this.lastInput = Math.max(this.t, this.lastInput); };
   Engine.prototype.skipIdle = function (sec) { this.lastInput -= sec * 1000; };
   Engine.prototype._snap = function () {
     if (!this.last) return;
     var c = {};
     for (var pid in this.last) {
+      var o = this.last[pid], part = findPart(this.p, pid);
       c[pid] = {};
-      for (var j = 0; j < PROPS.length; j++) c[pid][PROPS[j]] = this.last[pid][PROPS[j]];
+      for (var j = 0; j < PROPS.length; j++) c[pid][PROPS[j]] = o[PROPS[j]];
+      c[pid].img = o.img ? o.img.img : (part ? part.rest.img || 0 : 0);
     }
     this.blend = { start: this.t, from: c };
   };
+  Engine.prototype._start = function (id, weak, locked) {
+    this._snap();
+    this.one = { id: id, start: this.t, weak: !!weak, locked: !!locked };
+  };
+  Engine.prototype.rule = function (ev) {
+    var rules = this.p.rules || [];
+    for (var i = 0; i < rules.length; i++) {
+      var r = rules[i];
+      if (r.event === ev && (findClip(this.p, r.clip) || findClip(this.p, r.clipLeft))) return r;
+    }
+    return null;
+  };
   Engine.prototype.trigger = function (ev) {
     this.input();
-    var rules = this.p.rules || [], r = null;
-    for (var i = 0; i < rules.length; i++) {
-      if (rules[i].event === ev && findClip(this.p, rules[i].clip)) { r = rules[i]; break; }
-    }
+    var r = this.rule(ev);
     if (!r) return false;
-    // 마우스 올림·랜덤 동작은 가벼운 반응이라 다른 반응이 오면 바로 양보
-    if (this.one && !this.one.weak && !r.interrupt) return false;
-    if (this.one && this.one.weak && ev === 'hover') return false;
-    this._snap();
-    this.one = { id: r.clip, start: this.t, weak: ev === 'hover' };
+    if (r.cooldown && this.cool[r.id] != null && this.t - this.cool[r.id] < r.cooldown * 1000) return false;
+    var weak = ev === 'hover' || ev === 'near';
+    if (this.one) {
+      if (this.one.locked) return false;
+      if (!this.one.weak && !r.interrupt) return false;
+      if (this.one.weak && weak) return false;
+    }
+    var id = (this.side === 'left' && findClip(this.p, r.clipLeft)) ? r.clipLeft : r.clip;
+    if (!findClip(this.p, id)) id = r.clipLeft;
+    this.cool[r.id] = this.t;
+    this._start(id, weak, false);
     return true;
   };
-  Engine.prototype.stateClip = function () {
+  // 마우스 위치: 캐릭터 중심 기준 화면 px, unit = 무대 1칸이 화면에서 몇 px인지
+  Engine.prototype.pointer = function (dx, dy, unit) {
+    var t = now(), prev = this.ptr;
+    this.ptr = { x: dx, y: dy, t: t };
+    this.input();
+    this.side = dx < 0 ? 'left' : 'right';
+    var len = Math.sqrt(dx * dx + dy * dy), su = len / (unit || 1);
+    var k = Math.min(1, su / (this.opt.followRange || 600));
+    if (len < 1) { this.followT.x = 0; this.followT.y = 0; }
+    else { this.followT.x = dx / len * k; this.followT.y = dy / len * k; }
+    var fr = this.rule('flick');
+    if (fr && prev) {
+      var dt = (t - prev.t) / 1000;
+      if (dt > 0.004 && dt < 0.12) {
+        var v = Math.sqrt((dx - prev.x) * (dx - prev.x) + (dy - prev.y) * (dy - prev.y)) / dt;
+        if (v >= (+fr.speed || 2600)) this.trigger('flick');
+      }
+    }
+    var nr = this.rule('near');
+    if (nr) {
+      var R = +nr.dist || 260;
+      if (su < R) { if (this.nearArmed) { this.nearArmed = false; this.trigger('near'); } }
+      else if (su > R * 1.5) this.nearArmed = true;
+    }
+  };
+  Engine.prototype.click = function () {
+    this.input();
+    var sr = this.rule('spam');
+    if (sr) {
+      var t = now(), win = (+sr.window || 1.6) * 1000;
+      this.clicks.push(t);
+      this.clicks = this.clicks.filter(function (c) { return t - c <= win; });
+      if (this.clicks.length >= (+sr.count || 4)) { this.clicks = []; if (this.trigger('spam')) return; }
+    }
+    this.trigger('click');
+  };
+  Engine.prototype.key = function () { this.trigger('type'); };
+  Engine.prototype.stateRule = function () {
     var hour = this.hour != null ? this.hour : new Date().getHours();
     var idle = (this.t - this.lastInput) / 1000;
     var rules = this.p.rules || [];
     for (var i = 0; i < rules.length; i++) {
       var r = rules[i];
       if (!findClip(this.p, r.clip)) continue;
-      if (r.event === 'idle' && idle >= (+r.sec || 30)) return r.clip;
-      if (r.event === 'time' && inHours(hour, r.from, r.to)) return r.clip;
+      if (r.event === 'idle' && idle >= (+r.sec || 30)) return r;
+      if (r.event === 'time' && inHours(hour, r.from, r.to)) return r;
     }
-    return this.p.baseClip || null;
+    return null;
   };
   Engine.prototype.update = function (t) {
     this.t = t;
-    var p = this.p, self = this, rules = p.rules || [];
+    var p = this.p, self = this, rules = p.rules || [], base = p.baseClip || null;
+    var idleSec = (t - this.lastInput) / 1000;
     rules.forEach(function (r) {
       if (r.event !== 'random') return;
       var mn = Math.max(0.5, +r.min || 3), mx = Math.max(mn, +r.max || mn);
       var next = self.nextRand[r.id];
-      if (next == null) {
-        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
-      } else if (t >= next) {
-        // 랜덤 동작은 평소 동작 중일 때만 (졸고 있을 때 깜빡이며 눈을 뜨지 않도록)
-        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t, weak: true }; }
-        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
-      }
+      if (next == null) { self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn)); return; }
+      if (t < next) return;
+      self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
+      // 평소 동작 중이고, 다른 동작이 없고, 사용자가 잠시 조용할 때만
+      if (self.one || self.layer !== base || idleSec < (+r.quiet || 0)) return;
+      var pool = (r.clips && r.clips.length ? r.clips : [r.clip]).filter(function (id) { return findClip(p, id); });
+      if (!pool.length) return;
+      var pick = pool[Math.floor(Math.random() * pool.length)];
+      if (pool.length > 1 && pick === self.lastPick[r.id]) pick = pool[(pool.indexOf(pick) + 1) % pool.length];
+      self.lastPick[r.id] = pick;
+      self._start(pick, true, false);
     });
-    var layer = this.stateClip();
+    var sr = this.stateRule(), sid = sr ? sr.id : null;
+    if (this.stateId !== undefined && sid !== this.stateId) {
+      var prevR = null;
+      for (var i = 0; i < rules.length; i++) if (rules[i].id === this.stateId) prevR = rules[i];
+      if (sr && sr.enter && findClip(p, sr.enter)) this._start(sr.enter, false, true);
+      else if (prevR && prevR.exit && findClip(p, prevR.exit)) this._start(prevR.exit, false, true);
+    }
+    this.stateId = sid;
+    var layer = sr ? sr.clip : base;
     if (layer !== this.layer) {
       if (this.layer !== undefined) this._snap();
       this.layer = layer; this.layerStart = t;
@@ -626,10 +707,12 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       var tl = clip.loop ? (clip.dur > 0 ? el % clip.dur : 0) : Math.min(el, clip.dur);
       pose = clipPose(p, clip, tl);
     }
+    var oc = null;
     if (this.one) {
-      var oc = findClip(p, this.one.id), to = (t - this.one.start) / 1000;
+      oc = findClip(p, this.one.id);
+      var to = (t - this.one.start) / 1000;
       if (!oc || to >= oc.dur) {
-        this._snap(); this.one = null;
+        this._snap(); this.one = null; oc = null;
       } else {
         var op = clipPose(p, oc, to);
         for (var pid in op) {
@@ -637,6 +720,13 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
           for (var k in op[pid]) dst[k] = op[pid][k];
         }
       }
+    }
+    // 눈 따라보기: 동작마다 켜짐(on) / 멈춤(hold) / 가운데(center)
+    var fm = (oc && oc.follow) || (clip && clip.follow) || 'on';
+    if (fm !== 'hold') {
+      var tx = fm === 'center' ? 0 : this.followT.x, ty = fm === 'center' ? 0 : this.followT.y;
+      this.follow.x += (tx - this.follow.x) * 0.12;
+      this.follow.y += (ty - this.follow.y) * 0.12;
     }
     var off = offsetsFrom(p, pose);
     if (this.blend) {
@@ -651,6 +741,9 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
             var pr = PROPS[j];
             off[id][pr] = a[pr] + (off[id][pr] - a[pr]) * u;
           }
+          var part = findPart(p, id);
+          var cur = off[id].img ? off[id].img.img : (part ? part.rest.img || 0 : 0);
+          if (a.img !== cur && !(off[id].img && off[id].img.mix < 1)) off[id].img = { img: cur, prev: a.img, mix: u };
         }
       }
     }
@@ -722,17 +815,15 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     global.addEventListener('resize', resize);
 
     var eng = new Engine(p);
-    var follow = { x: 0, y: 0 }, tgt = { x: 0, y: 0 };
+    var noFollow = { x: 0, y: 0 };
     var S = p.stage || { w: 400, h: 400 };
     var raf = 0;
 
     function draw(t) {
       var off = reduce ? offsetsFrom(p, {}) : eng.update(t);
-      follow.x += (tgt.x - follow.x) * 0.12;
-      follow.y += (tgt.y - follow.y) * 0.12;
       var sc = size / Math.max(S.w, S.h) * dpr;
       var view = [sc, 0, 0, sc, (cv.width - S.w * sc) / 2, (cv.height - S.h * sc) / 2];
-      var fp = finalPose(p, off, reduce ? null : follow);
+      var fp = finalPose(p, off, reduce ? noFollow : eng.follow);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, cv.width, cv.height);
       render(ctx, p, fp, worldMatrices(p, fp), view);
@@ -758,17 +849,13 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     }
 
     document.addEventListener('pointermove', function (e) {
-      eng.input();
+      if (reduce || hidden) return;
       var r = cv.getBoundingClientRect();
-      var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-      var len = Math.sqrt(dx * dx + dy * dy);
-      if (len < 1) { tgt.x = 0; tgt.y = 0; return; }
-      var kk = Math.min(1, len / 250);
-      tgt.x = dx / len * kk; tgt.y = dy / len * kk;
+      eng.pointer(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2), r.width / Math.max(S.w, S.h));
     }, { passive: true });
-    document.addEventListener('keydown', function () { if (!reduce) eng.trigger('type'); });
+    document.addEventListener('keydown', function () { if (!reduce) eng.key(); });
     global.addEventListener('scroll', function () { eng.input(); }, { passive: true });
-    cv.addEventListener('click', function () { if (!reduce) eng.trigger('click'); });
+    cv.addEventListener('click', function () { if (!reduce) eng.click(); });
     cv.addEventListener('pointerenter', function () { if (!reduce) eng.trigger('hover'); });
     document.addEventListener('visibilitychange', wake);
     wake();
@@ -813,7 +900,8 @@ var TL_LBL = { x: '좌우 이동', y: '위아래 이동', rot: '회전', sx: '�
 var UNIT = { x: 'px', y: 'px', rot: '°', sx: '%', sy: '%', op: '%' };
 var PCT = { sx: 1, sy: 1, op: 1 };
 var EASES = [['inout', '부드럽게'], ['out', '천천히 끝나게'], ['in', '천천히 시작'], ['linear', '일정하게'], ['back', '튕기듯 지나쳤다 돌아오기'], ['step', '뚝 끊기 (다음 키까지 유지)']];
-var EVENTS = [['click', '클릭할 때'], ['hover', '마우스를 올렸을 때'], ['type', '타자를 칠 때'], ['random', '가끔 랜덤으로'], ['idle', '한동안 가만히 있으면'], ['time', '특정 시간대에']];
+var EVENTS = [['click', '클릭할 때'], ['spam', '연달아 여러 번 클릭하면'], ['hover', '마우스를 올렸을 때'], ['near', '마우스가 가까이 오면'], ['flick', '마우스를 휙 움직이면'], ['type', '타자를 칠 때'], ['random', '가끔 혼자'], ['idle', '한동안 가만히 있으면'], ['time', '특정 시간대에']];
+var SIDED = { click: 1, spam: 1, hover: 1, near: 1, flick: 1 };
 var EPS = 0.004;
 var POOL = {};
 var ICON = {
@@ -1147,7 +1235,8 @@ function alphaAt(vr, x, y) {
     e = { ok: false };
     try {
       var c = document.createElement('canvas');
-      c.width = Math.max(1, Math.round(vr.w)); c.height = Math.max(1, Math.round(vr.h));
+      var ks = Math.min(1, 400 / Math.max(vr.w, vr.h)); e.k = ks;
+      c.width = Math.max(1, Math.round(vr.w * ks)); c.height = Math.max(1, Math.round(vr.h * ks));
       var cx = c.getContext('2d');
       cx.drawImage(im, 0, 0, c.width, c.height);
       e.data = cx.getImageData(0, 0, c.width, c.height).data; e.w = c.width; e.h = c.height; e.ok = true;
@@ -1155,7 +1244,7 @@ function alphaAt(vr, x, y) {
     alphaCache[vr.asset] = e;
   }
   if (!e.ok) return true;
-  var ix = Math.floor(x), iy = Math.floor(y);
+  var ix = Math.floor(x * (e.k || 1)), iy = Math.floor(y * (e.k || 1));
   if (ix < 0 || iy < 0 || ix >= e.w || iy >= e.h) return false;
   return e.data[(iy * e.w + ix) * 4 + 3] > 24;
 }
@@ -1179,7 +1268,7 @@ function stagePt(e) {
   return { sx: ux * P.stage.w, sy: uy * P.stage.h, bx: ux * cv.width, by: uy * cv.height };
 }
 cv.addEventListener('pointerdown', function (e) {
-  if (S.mode === 'test') { if (eng) eng.trigger('click'); return; }
+  if (S.mode === 'test') { if (eng) eng.click(); return; }
   var pt = stagePt(e), part = selPart(), ep = editPose();
   if (part && handlePos && !S.pivotEdit && Math.hypot(pt.bx - handlePos[0], pt.by - handlePos[1]) < 16 * dpr) {
     var M = CP.mul(viewM(), ep.W[part.id]);
@@ -1566,12 +1655,13 @@ function syncClipBar() {
   $('clipSel').innerHTML = '<option value="rest">기본 자세 (움직임 없음)</option>' +
     P.clips.map(function (cl) { return '<option value="' + esc(cl.id) + '">' + esc(cl.name) + (cl.loop ? ' · 반복' : '') + '</option>'; }).join('');
   $('clipSel').value = S.clip;
-  ['clipName', 'clipDur', 'clipLoop', 'bPlay', 'bRewind', 'bDupClip', 'bDelClip'].forEach(function (id) { $(id).disabled = !c || S.mode === 'test'; });
+  ['clipName', 'clipDur', 'clipLoop', 'clipFollow', 'bPlay', 'bRewind', 'bDupClip', 'bDelClip'].forEach(function (id) { $(id).disabled = !c || S.mode === 'test'; });
   $('bNewClip').disabled = S.mode === 'test';
   $('clipSel').disabled = S.mode === 'test';
   if (document.activeElement !== $('clipName')) $('clipName').value = c ? c.name : '';
   if (document.activeElement !== $('clipDur')) $('clipDur').value = c ? c.dur : '';
   $('clipLoop').checked = c ? !!c.loop : false;
+  $('clipFollow').value = c && c.follow ? c.follow : 'on';
   $('bPlay').textContent = S.playing ? '일시정지' : '재생';
   $('timeline').classList.toggle('locked', S.mode === 'test');
   updateTimeText();
@@ -1700,6 +1790,7 @@ $('clipDur').addEventListener('change', function (e) {
   var v = clamp(r2(parseFloat(e.target.value) || c.dur), 0.1, 30);
   pushUndo(); c.dur = v; S.t = Math.min(S.t, v); renderTimeline(); drawStage(); scheduleSave();
 });
+$('clipFollow').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); if (e.target.value === 'on') delete c.follow; else c.follow = e.target.value; scheduleSave(); });
 $('clipLoop').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); c.loop = e.target.checked; renderTimeline(); scheduleSave(); });
 $('bNewClip').addEventListener('click', function () {
   pushUndo();
@@ -1721,7 +1812,11 @@ $('bDelClip').addEventListener('click', function (e) {
   if (!arm('delclip' + c.id, btn)) { toast('한 번 더 누르면 "' + c.name + '" 동작을 삭제해요'); return; }
   pushUndo();
   P.clips.splice(P.clips.indexOf(c), 1);
-  P.rules.forEach(function (r) { if (r.clip === c.id) r.clip = ''; });
+  P.rules.forEach(function (r) {
+    if (r.clip === c.id) r.clip = '';
+    if (r.clips) { r.clips = r.clips.filter(function (x) { return x !== c.id; }); if (r.event === 'random') r.clip = r.clips[0] || ''; }
+    ['clipLeft', 'enter', 'exit'].forEach(function (f) { if (r[f] === c.id) delete r[f]; });
+  });
   if (P.baseClip === c.id) P.baseClip = null;
   S.clip = 'rest'; S.selKey = null; play(false);
   changed(); toast('동작을 삭제했어요');
@@ -1751,26 +1846,43 @@ function clipOptions(sel, allowNone) {
     P.clips.map(function (c) { return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('');
 }
 function hourOptions(sel) { var s = ''; for (var i = 0; i < 24; i++) s += '<option value="' + i + '"' + (+sel === i ? ' selected' : '') + '>' + i + '시</option>'; return s; }
+function numIn(f, v, step, label, w) { return '<input type="number" data-f="' + f + '" step="' + step + '" value="' + v + '" aria-label="' + label + '" style="width:' + (w || 64) + 'px">'; }
 function renderRules() {
   var box = $('tab-rules');
   var h = '<div class="sec"><div class="field"><label for="baseSel">평소 동작</label><select id="baseSel">' + clipOptions(P.baseClip, '없음 (기본 자세로 정지)') + '</select></div>' +
     '<p class="hint">아무 일도 없을 때 계속 반복되는 동작이에요.</p></div><div class="sec"><h3>규칙</h3>';
   P.rules.forEach(function (r, i) {
-    var isState = r.event === 'idle' || r.event === 'time';
+    var isState = r.event === 'idle' || r.event === 'time', isRand = r.event === 'random';
     h += '<div class="rule" data-i="' + i + '"><div class="top">' +
       '<select data-f="event" aria-label="언제">' + EVENTS.map(function (ev) { return '<option value="' + ev[0] + '"' + (ev[0] === r.event ? ' selected' : '') + '>' + ev[1] + '</option>'; }).join('') + '</select>' +
       '<span class="arrow" aria-hidden="true">→</span>' +
-      '<select data-f="clip" aria-label="재생할 동작">' + clipOptions(r.clip, '동작 고르기') + '</select>' +
+      (isRand ? '<span class="hint">아래에서 고른 동작 중 하나</span>' : '<select data-f="clip" aria-label="재생할 동작">' + clipOptions(r.clip, '동작 고르기') + '</select>') +
       '<div class="inline" style="gap:0"><button class="ibtn" data-act="up" aria-label="위로 (먼저 적용)" title="위로 (먼저 적용)"' + (i === 0 ? ' disabled' : '') + '>' + ICON.up + '</button>' +
       '<button class="ibtn" data-act="del" aria-label="규칙 삭제" title="삭제">' + ICON.trash + '</button></div></div><div class="params">';
-    if (r.event === 'random') h += '<input type="number" data-f="min" min="0.5" step="0.5" value="' + (r.min || 3) + '" aria-label="최소 초">초 ~ <input type="number" data-f="max" min="0.5" step="0.5" value="' + (r.max || 6) + '" aria-label="최대 초">초마다 한 번';
-    else if (r.event === 'idle') h += '<input type="number" data-f="sec" min="1" step="1" value="' + (r.sec || 30) + '" aria-label="초">초 동안 마우스·키보드 입력이 없으면';
-    else if (r.event === 'time') h += '<select data-f="from" aria-label="시작 시각">' + hourOptions(r.from) + '</select>부터 <select data-f="to" aria-label="끝 시각">' + hourOptions(r.to) + '</select>까지';
-    else h += '<label class="check"><input type="checkbox" data-f="interrupt"' + (r.interrupt ? ' checked' : '') + '> 재생 중에 또 일어나면 처음부터 다시</label>';
-    h += '<span class="tag' + (isState ? ' state' : '') + '">' + (isState ? '조건이 맞는 동안 반복' : '한 번 재생') + '</span></div></div>';
+    if (isRand) {
+      var pool = r.clips && r.clips.length ? r.clips : [r.clip];
+      h += numIn('min', r.min || 3, 0.5, '최소 초') + '초 ~ ' + numIn('max', r.max || 6, 0.5, '최대 초') + '초마다, 마지막 입력 후 ' + numIn('quiet', r.quiet || 0, 1, '조용한 시간(초)') + '초 지났을 때' +
+        '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;width:100%">' + P.clips.map(function (c) {
+          return '<label class="check"><input type="checkbox" data-f="pool" data-cid="' + esc(c.id) + '"' + (pool.indexOf(c.id) >= 0 ? ' checked' : '') + '> ' + esc(c.name) + '</label>';
+        }).join('') + '</div>';
+    } else if (r.event === 'idle' || r.event === 'time') {
+      if (r.event === 'idle') h += numIn('sec', r.sec || 30, 1, '초') + '초 동안 마우스·키보드 입력이 없으면';
+      else h += '<select data-f="from" aria-label="시작 시각">' + hourOptions(r.from) + '</select>부터 <select data-f="to" aria-label="끝 시각">' + hourOptions(r.to) + '</select>까지';
+      h += '<div class="field" style="width:100%"><label>시작할 때</label><select data-f="enter">' + clipOptions(r.enter, '바로 반복') + '</select></div>' +
+        '<div class="field" style="width:100%"><label>끝날 때</label><select data-f="exit">' + clipOptions(r.exit, '바로 평소로') + '</select></div>';
+    } else {
+      if (r.event === 'near') h += '캐릭터 중심에서 무대 ' + numIn('dist', r.dist || 260, 10, '거리') + '칸 안으로, ';
+      if (r.event === 'flick') h += '초당 ' + numIn('speed', r.speed || 3500, 100, '속도', 76) + 'px 넘게, ';
+      if (r.event === 'spam') h += numIn('window', r.window || 1.6, 0.1, '초') + '초 안에 ' + numIn('count', r.count || 4, 1, '번') + '번, ';
+      if (r.event === 'near' || r.event === 'flick') h += '다시 하기까지 ' + numIn('cooldown', r.cooldown || 0, 1, '쉬는 시간') + '초 쉬기';
+      h += '<label class="check" style="width:100%"><input type="checkbox" data-f="interrupt"' + (r.interrupt ? ' checked' : '') + '> 다른 동작 중이어도 끊고 시작</label>';
+      if (SIDED[r.event]) h += '<div class="field" style="width:100%"><label>커서가 왼쪽이면</label><select data-f="clipLeft">' + clipOptions(r.clipLeft, '같은 동작') + '</select></div>';
+    }
+    h += '<span class="tag' + (isState ? ' state' : '') + '">' + (isState ? '조건이 맞는 동안 반복' : isRand ? '가끔 혼자' : '한 번 재생') + '</span></div></div>';
   });
   h += '<div class="inline"><button class="btn sm" id="bAddRule">+ 규칙 추가</button></div>' +
-    '<p class="hint">"한동안 가만히", "특정 시간대" 규칙은 조건이 맞는 동안 평소 동작 대신 반복되고, 위에 있는 규칙이 먼저 적용돼요. 나머지는 한 번 재생된 뒤 평소 동작으로 돌아가요. "마우스를 올렸을 때"와 "가끔 랜덤으로" 동작은 가벼운 반응이라, 재생 중에 클릭이나 타자가 오면 바로 그쪽으로 넘어가요. 한 번 재생 동작은 키를 찍은 부분만 덮어쓰기 때문에 숨쉬기 같은 평소 동작과 자연스럽게 섞여요.</p></div>';
+    '<p class="hint">"한동안 가만히", "특정 시간대" 규칙은 조건이 맞는 동안 평소 동작 대신 반복되고, 시작·끝날 때 동작을 따로 정할 수 있어요. 위에 있는 규칙이 먼저 적용돼요.</p>' +
+    '<p class="hint">"가끔 혼자" 동작은 평소 동작 중이고 다른 동작이 없을 때만 나와요. "마우스를 올렸을 때·가까이 오면"과 "가끔 혼자" 동작은 가벼운 반응이라 클릭이나 타자가 오면 바로 양보해요. 한 번 재생 동작은 키를 찍은 부분만 덮어써서 숨쉬기 같은 평소 동작과 섞여요.</p></div>';
   box.innerHTML = h;
   $('baseSel').addEventListener('change', function (e) { pushUndo(); P.baseClip = e.target.value || null; scheduleSave(); });
   $('bAddRule').addEventListener('click', function () {
@@ -1779,18 +1891,26 @@ function renderRules() {
     renderRules(); scheduleSave();
   });
 }
+var RULE_DEF = { near: { dist: 260, cooldown: 10 }, flick: { speed: 3500, cooldown: 12 }, spam: { count: 4, window: 1.6, interrupt: true },
+  random: { min: 9, max: 18, quiet: 3 }, idle: { sec: 30 }, time: { from: 23, to: 6 } };
 $('tab-rules').addEventListener('change', function (e) {
   var card = e.target.closest('.rule'); if (!card) return;
   var r = P.rules[+card.dataset.i], f = e.target.dataset.f; if (!r || !f) return;
   pushUndo();
+  var num = { min: 0.5, max: 0.5, sec: 1, dist: 10, speed: 200, cooldown: 0, count: 2, window: 0.2, quiet: 0 };
   if (f === 'interrupt') r.interrupt = e.target.checked;
-  else if (f === 'min' || f === 'max' || f === 'sec') r[f] = Math.max(0.5, parseFloat(e.target.value) || 1);
+  else if (f === 'pool') {
+    var pool = r.clips && r.clips.length ? r.clips.slice() : (r.clip ? [r.clip] : []), id = e.target.dataset.cid;
+    if (e.target.checked) { if (pool.indexOf(id) < 0) pool.push(id); } else pool = pool.filter(function (x) { return x !== id; });
+    r.clips = pool; r.clip = pool[0] || '';
+  }
+  else if (num[f] != null) r[f] = Math.max(num[f], parseFloat(e.target.value) || num[f]);
   else if (f === 'from' || f === 'to') r[f] = +e.target.value;
+  else if (f === 'clipLeft' || f === 'enter' || f === 'exit') { if (e.target.value) r[f] = e.target.value; else delete r[f]; }
   else r[f] = e.target.value;
   if (f === 'event') {
-    if (r.event === 'random') { r.min = r.min || 3; r.max = r.max || 6; }
-    if (r.event === 'idle') r.sec = r.sec || 30;
-    if (r.event === 'time') { r.from = r.from != null ? r.from : 23; r.to = r.to != null ? r.to : 6; }
+    var d = RULE_DEF[r.event] || {};
+    for (var k in d) if (r[k] == null) r[k] = d[k];
     renderRules();
   }
   scheduleSave();
@@ -1857,7 +1977,7 @@ function drawSitePreview() {
 }
 
 // ---------- 반응 테스트 ----------
-var eng = null, rafTest = 0, fol = { x: 0, y: 0 }, folT = { x: 0, y: 0 };
+var eng = null, rafTest = 0;
 (function () { var s = '<option value="">지금 시각</option>'; for (var i = 0; i < 24; i++) s += '<option value="' + i + '">' + i + '시로 가정</option>'; $('tHour').innerHTML = s; })();
 function setMode(m) {
   if (m === S.mode) return;
@@ -1879,8 +1999,7 @@ function testTick(ts) {
   if (S.mode !== 'test' || !eng) return;
   eng.p = P;
   var off = eng.update(ts);
-  fol.x += (folT.x - fol.x) * 0.12; fol.y += (folT.y - fol.y) * 0.12;
-  var fp = CP.finalPose(P, off, fol);
+  var fp = CP.finalPose(P, off, eng.follow);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, cv.width, cv.height);
   CP.render(ctx, P, fp, CP.worldMatrices(P, fp), viewM());
@@ -1895,17 +2014,22 @@ function testTick(ts) {
 }
 document.addEventListener('pointermove', function (e) {
   if (S.mode !== 'test' || !eng) return;
-  eng.input();
   var r = cv.getBoundingClientRect();
-  var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-  var len = Math.hypot(dx, dy);
-  if (len < 1) { folT.x = 0; folT.y = 0; return; }
-  var k = Math.min(1, len / (r.width * 0.8));
-  folT.x = dx / len * k; folT.y = dy / len * k;
+  eng.pointer(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2), r.width / Math.max(P.stage.w, P.stage.h));
 }, { passive: true });
 $('mEdit').addEventListener('click', function () { setMode('edit'); });
 $('mTest').addEventListener('click', function () { setMode('test'); });
-$('tType').addEventListener('click', function () { if (eng) eng.trigger('type'); });
+$('tType').addEventListener('click', function () { if (eng) eng.key(); });
+$('tFlick').addEventListener('click', function () { if (eng) eng.trigger('flick'); });
+$('tAct').addEventListener('click', function () {
+  if (!eng) return;
+  var pool = [];
+  P.rules.forEach(function (r) { if (r.event === 'random' && (+r.max || 0) >= 8) pool = pool.concat(r.clips && r.clips.length ? r.clips : [r.clip]); });
+  pool = pool.filter(function (id) { return CP.findClip(P, id); });
+  if (!pool.length) { toast('"가끔 혼자" 규칙에 고른 동작이 없어요'); return; }
+  eng._actIdx = ((eng._actIdx == null ? -1 : eng._actIdx) + 1) % pool.length;
+  eng.input(); eng._start(pool[eng._actIdx], true, false);
+});
 $('tIdle').addEventListener('click', function () {
   if (!eng) return;
   var mx = 0; P.rules.forEach(function (r) { if (r.event === 'idle') mx = Math.max(mx, +r.sec || 30); });
@@ -2020,7 +2144,7 @@ window.addEventListener('keydown', function (e) {
   var tag = e.target && e.target.tagName;
   var inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (!$('dlg').hidden) { if (e.key === 'Escape') $('dlg').hidden = true; return; }
-  if (S.mode === 'test') { if (!inField && eng) eng.trigger('type'); return; }
+  if (S.mode === 'test') { if (!inField && eng) eng.key(); return; }
   if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { if (inField) return; e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
   if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { if (inField) return; e.preventDefault(); doRedo(); return; }
   if (inField) return;
