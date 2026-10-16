@@ -244,9 +244,11 @@
       if (rules[i].event === ev && findClip(this.p, rules[i].clip)) { r = rules[i]; break; }
     }
     if (!r) return false;
-    if (this.one && !r.interrupt) return false;
+    // 마우스 올림·랜덤 동작은 가벼운 반응이라 다른 반응이 오면 바로 양보
+    if (this.one && !this.one.weak && !r.interrupt) return false;
+    if (this.one && this.one.weak && ev === 'hover') return false;
     this._snap();
-    this.one = { id: r.clip, start: this.t };
+    this.one = { id: r.clip, start: this.t, weak: ev === 'hover' };
     return true;
   };
   Engine.prototype.stateClip = function () {
@@ -272,7 +274,7 @@
         self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
       } else if (t >= next) {
         // 랜덤 동작은 평소 동작 중일 때만 (졸고 있을 때 깜빡이며 눈을 뜨지 않도록)
-        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t }; }
+        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t, weak: true }; }
         self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
       }
     });

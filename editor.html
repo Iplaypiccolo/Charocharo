@@ -144,7 +144,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .name-input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; background: var(--panel-2); font-weight: 500; }
 .ctx-note { font-size: 12px; color: var(--muted); }
 .ctx-note b { color: var(--accent-text); font-weight: 500; }
-.prow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 62px 22px 26px; align-items: center; gap: 6px; }
+.prow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 70px 22px 26px; align-items: center; gap: 6px; }
 .prow label { font-size: 12.5px; color: var(--muted); }
 .prow input[type=range] { width: 100%; accent-color: var(--accent); min-width: 0; }
 .prow input[type=number], .field input[type=number], .field input[type=text], .field select, .prow select, .rule select, .rule input {
@@ -253,6 +253,7 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
     <div class="bar-actions">
       <button class="btn" id="bUndo" title="되돌리기 (Ctrl+Z)">되돌리기</button>
       <button class="btn" id="bRedo" title="다시 하기 (Ctrl+Shift+Z)">다시 하기</button>
+      <button class="btn" id="bSiteLoad" hidden title="사이트에 올라가 있는 charo-pet.json을 불러와요">사이트 버전 불러오기</button>
       <label class="btn" for="fLoad">불러오기</label>
       <input type="file" id="fLoad" accept=".json,application/json" hidden>
       <button class="btn primary" id="bSave">저장 (.json)</button>
@@ -580,9 +581,11 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
       if (rules[i].event === ev && findClip(this.p, rules[i].clip)) { r = rules[i]; break; }
     }
     if (!r) return false;
-    if (this.one && !r.interrupt) return false;
+    // 마우스 올림·랜덤 동작은 가벼운 반응이라 다른 반응이 오면 바로 양보
+    if (this.one && !this.one.weak && !r.interrupt) return false;
+    if (this.one && this.one.weak && ev === 'hover') return false;
     this._snap();
-    this.one = { id: r.clip, start: this.t };
+    this.one = { id: r.clip, start: this.t, weak: ev === 'hover' };
     return true;
   };
   Engine.prototype.stateClip = function () {
@@ -608,7 +611,7 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
         self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
       } else if (t >= next) {
         // 랜덤 동작은 평소 동작 중일 때만 (졸고 있을 때 깜빡이며 눈을 뜨지 않도록)
-        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t }; }
+        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t, weak: true }; }
         self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
       }
     });
@@ -1767,7 +1770,7 @@ function renderRules() {
     h += '<span class="tag' + (isState ? ' state' : '') + '">' + (isState ? '조건이 맞는 동안 반복' : '한 번 재생') + '</span></div></div>';
   });
   h += '<div class="inline"><button class="btn sm" id="bAddRule">+ 규칙 추가</button></div>' +
-    '<p class="hint">"한동안 가만히", "특정 시간대" 규칙은 조건이 맞는 동안 평소 동작 대신 반복되고, 위에 있는 규칙이 먼저 적용돼요. 나머지는 한 번 재생된 뒤 평소 동작으로 돌아가요. 한 번 재생 동작은 키를 찍은 부분만 덮어쓰기 때문에 숨쉬기 같은 평소 동작과 자연스럽게 섞여요.</p></div>';
+    '<p class="hint">"한동안 가만히", "특정 시간대" 규칙은 조건이 맞는 동안 평소 동작 대신 반복되고, 위에 있는 규칙이 먼저 적용돼요. 나머지는 한 번 재생된 뒤 평소 동작으로 돌아가요. "마우스를 올렸을 때"와 "가끔 랜덤으로" 동작은 가벼운 반응이라, 재생 중에 클릭이나 타자가 오면 바로 그쪽으로 넘어가요. 한 번 재생 동작은 키를 찍은 부분만 덮어쓰기 때문에 숨쉬기 같은 평소 동작과 자연스럽게 섞여요.</p></div>';
   box.innerHTML = h;
   $('baseSel').addEventListener('change', function (e) { pushUndo(); P.baseClip = e.target.value || null; scheduleSave(); });
   $('bAddRule').addEventListener('click', function () {
@@ -2045,18 +2048,26 @@ renderAll();
 fitStage();
 CP.preload(P).then(function () { drawStage(); drawSitePreview(); renderParts(); });
 
-// 사이트에서 열었을 때: 이 브라우저에 작업이 없으면 사이트에 올라간 캐릭터 파일로 시작
-if (!SAVED && !window.claude && /^https?:$/.test(location.protocol)) {
-  fetch('charo-pet.json', { cache: 'no-cache' })
+// 사이트에서 열었을 때: 사이트에 올라간 캐릭터 파일 불러오기
+var ON_SITE = !window.claude && /^https?:$/.test(location.protocol);
+function loadSiteVersion(auto) {
+  return fetch('charo-pet.json', { cache: 'no-cache' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (p) {
-      if (!p || undoStack.length) return;
-      P = normalize(p); alphaCache = {}; S.selKey = null;
+      if (!p) { if (!auto) toast('사이트 파일을 찾지 못했어요'); return; }
+      if (auto && undoStack.length) return;
+      if (!auto) pushUndo();
+      P = normalize(p); alphaCache = {}; S.selKey = null; S.hiddenParts = {};
       if (!CP.findClip(P, S.clip)) { S.clip = P.clips[0] ? P.clips[0].id : 'rest'; S.t = 0; }
       fixSelection();
       CP.preload(P).then(function () { changed(); toast('사이트에 올라간 캐릭터를 불러왔어요'); });
     })
-    .catch(function () {});
+    .catch(function () { if (!auto) toast('사이트 파일을 불러오지 못했어요'); });
+}
+if (ON_SITE) {
+  $('bSiteLoad').hidden = false;
+  $('bSiteLoad').addEventListener('click', function () { loadSiteVersion(false); });
+  if (!SAVED) loadSiteVersion(true);
 }
 })();
 </script>
