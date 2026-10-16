@@ -1,0 +1,2065 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}</style>
+</head>
+<body>
+<title>차로차로 모션 에디터</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 왼쪽 파츠 · 가운데 무대 · 오른쪽 속성/규칙 · 아래 타임라인 (좁은 화면에서는 세로로 쌓임) */
+:root {
+  --bg: #EEF1F4;
+  --panel: #FFFFFF;
+  --panel-2: #F6F8FA;
+  --ink: #17212B;
+  --muted: #5A6774;
+  --line: #D6DDE4;
+  --line-strong: #B9C3CD;
+  --accent: #DE6A0C;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #FCE9D9;
+  --accent-text: #A84D05;
+  --danger: #C2362F;
+  --chk1: #FFFFFF;
+  --chk2: #E6EBF0;
+  --f-ui: "IBM Plex Sans KR", system-ui, -apple-system, "Malgun Gothic", sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --f-display: "Do Hyeon", "IBM Plex Sans KR", "Malgun Gothic", sans-serif;
+  --lab: 148px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F151B; --panel: #161E26; --panel-2: #1B242D; --ink: #E4EAF0; --muted: #94A2AF;
+    --line: #27323D; --line-strong: #3A4754; --accent: #F2883A; --accent-ink: #1A0E04;
+    --accent-soft: #3A2414; --accent-text: #F6A867; --danger: #F07068; --chk1: #1A222A; --chk2: #212B35;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F151B; --panel: #161E26; --panel-2: #1B242D; --ink: #E4EAF0; --muted: #94A2AF;
+  --line: #27323D; --line-strong: #3A4754; --accent: #F2883A; --accent-ink: #1A0E04;
+  --accent-soft: #3A2414; --accent-text: #F6A867; --danger: #F07068; --chk1: #1A222A; --chk2: #212B35;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-ui); }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+
+.app {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr) 312px;
+  grid-template-rows: auto minmax(0, 1fr) 272px;
+  grid-template-areas: "bar bar bar" "parts stage side" "tl tl tl";
+  height: 100%;
+  gap: 1px;
+  background: var(--line);
+}
+.bar { grid-area: bar; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--panel); }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.stripe { width: 26px; height: 26px; border-radius: 6px; flex: none;
+  background: repeating-linear-gradient(135deg, var(--accent) 0 6px, var(--ink) 6px 12px); }
+.brand h1 { margin: 0; font: 400 22px/1 var(--f-display); letter-spacing: 0.01em; }
+.brand small { color: var(--muted); font-size: 12px; }
+.bar-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.save-state { color: var(--muted); font-size: 12px; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--panel);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; line-height: 1.4; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+.btn.sm { padding: 4px 9px; font-size: 12px; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--panel-2); }
+.btn.danger { color: var(--danger); }
+.btn.danger.armed { background: var(--danger); border-color: var(--danger); color: #fff; }
+.icon { width: 16px; height: 16px; flex: none; }
+.ibtn { width: 28px; height: 28px; display: inline-grid; place-items: center; border-radius: 6px; border: 1px solid transparent;
+  background: transparent; cursor: pointer; color: var(--muted); padding: 0; }
+.ibtn:hover { background: var(--panel-2); color: var(--ink); }
+.ibtn.armed { background: var(--danger); color: #fff; }
+.ibtn:disabled { opacity: 0.3; cursor: default; }
+
+.panel { background: var(--panel); min-width: 0; min-height: 0; overflow: auto; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px 6px; }
+.panel-h h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--muted); }
+.hint { color: var(--muted); font-size: 12px; margin: 0; line-height: 1.55; text-wrap: pretty; }
+
+/* 파츠 목록 */
+.parts { grid-area: parts; }
+.parts .hint { padding: 0 14px 10px; }
+#partList { list-style: none; margin: 0; padding: 0 6px 12px; display: grid; gap: 2px; }
+.part { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  padding: 5px 6px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+.part:hover { background: var(--panel-2); }
+.part.sel { background: var(--accent-soft); border-color: var(--accent); }
+.part.off .pname, .part.off .thumb { opacity: 0.4; }
+.thumb { width: 30px; height: 30px; border-radius: 6px; object-fit: contain; border: 1px solid var(--line);
+  background: conic-gradient(var(--chk2) 25%, var(--chk1) 0 50%, var(--chk2) 0 75%, var(--chk1) 0) 0 0 / 10px 10px; }
+.pname { min-width: 0; }
+.pname b { display: block; font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pname span { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pbtns { display: flex; gap: 0; }
+.pbtns .ibtn { width: 24px; height: 26px; }
+.pbtns .ibtn .icon { width: 15px; height: 15px; }
+
+/* 무대 */
+.stage-col { grid-area: stage; background: var(--bg); display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 12px 16px; gap: 10px; overflow: auto; }
+.stage-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 9px; padding: 2px; background: var(--panel); }
+.seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
+.chip.live { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+.stage-wrap { flex: 1 1 0; min-height: 220px; display: grid; place-items: center; overflow: hidden; }
+#stage { width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 12px; border: 1px solid var(--line);
+  background: conic-gradient(var(--chk2) 25%, var(--chk1) 0 50%, var(--chk2) 0 75%, var(--chk1) 0) 0 0 / 24px 24px;
+  touch-action: none; cursor: default; display: block; }
+#stage.grab { cursor: grab; }
+.testbar { display: grid; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.testbar .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.testbar label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+
+/* 오른쪽 */
+.side { grid-area: side; display: flex; flex-direction: column; }
+.tabs { display: flex; gap: 2px; padding: 10px 10px 0; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 2; }
+.tabs button { border: 0; background: transparent; padding: 7px 10px 9px; cursor: pointer; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 500; }
+.tab-body { padding: 4px 14px 18px; display: grid; gap: 4px; align-content: start; }
+.sec { padding: 12px 0; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.sec:last-child { border-bottom: 0; }
+.sec h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; }
+.name-input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; background: var(--panel-2); font-weight: 500; }
+.ctx-note { font-size: 12px; color: var(--muted); }
+.ctx-note b { color: var(--accent-text); font-weight: 500; }
+.prow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 62px 22px 26px; align-items: center; gap: 6px; }
+.prow label { font-size: 12.5px; color: var(--muted); }
+.prow input[type=range] { width: 100%; accent-color: var(--accent); min-width: 0; }
+.prow input[type=number], .field input[type=number], .field input[type=text], .field select, .prow select, .rule select, .rule input {
+  width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; background: var(--panel-2); min-width: 0; }
+.prow input[type=number] { font-family: var(--f-num); font-size: 12.5px; text-align: right; }
+.unit { font-size: 11px; color: var(--muted); }
+.prow.img { grid-template-columns: 70px minmax(0, 1fr) 26px; }
+.kbtn { width: 26px; height: 26px; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; padding: 0; border-radius: 6px; }
+.kbtn:hover { background: var(--panel-2); }
+.kbtn i { width: 11px; height: 11px; transform: rotate(45deg); border: 1.5px solid var(--muted); display: block; border-radius: 1px; }
+.kbtn.on i { background: var(--accent); border-color: var(--accent); }
+.field { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
+.field > span:first-child, .field > label:first-child { color: var(--muted); font-size: 12.5px; }
+.inline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--accent); }
+.var { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.var input { border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; background: var(--panel-2); width: 100%; min-width: 0; }
+.keybox { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
+.keybox h3 { color: var(--accent-text); }
+
+.rule { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 8px; background: var(--panel-2); }
+.rule .top { display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.rule .arrow { color: var(--muted); text-align: center; font-size: 12px; }
+.rule .params { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.rule .params input[type=number] { width: 64px; font-family: var(--f-num); }
+.rule .params select { width: auto; }
+.tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); }
+.tag.state { border-color: var(--accent); color: var(--accent-text); }
+.code { font-family: var(--f-num); font-size: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; white-space: pre; }
+ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13px; }
+.preview-box { display: grid; place-items: end; height: 190px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 10px;
+  background: linear-gradient(var(--panel-2), var(--panel-2)) top / 100% 22px no-repeat, var(--panel); position: relative; overflow: hidden; }
+.preview-box.left { place-items: end start; }
+
+/* 타임라인 */
+.timeline { grid-area: tl; display: flex; flex-direction: column; overflow: hidden; }
+.tl-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-block: 8px; padding-inline: 12px; border-bottom: 1px solid var(--line); }
+.tl-bar select, .tl-bar input[type=text], .tl-bar input[type=number] { border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; background: var(--panel-2); }
+.tl-bar #clipName { width: 130px; }
+.tl-bar #clipDur { width: 72px; font-family: var(--f-num); }
+.tl-time { font-family: var(--f-num); font-size: 12.5px; color: var(--muted); min-width: 108px; }
+.sep { width: 1px; height: 22px; background: var(--line); }
+.tl-scroll { flex: 1; overflow: auto; position: relative; }
+.timeline.locked .tl-scroll { opacity: 0.45; pointer-events: none; }
+#tl { position: relative; min-width: 520px; user-select: none; -webkit-user-select: none; }
+.tl-row { display: grid; grid-template-columns: var(--lab) minmax(0, 1fr); height: 26px; border-bottom: 1px solid var(--line); }
+.tl-row.ruler { height: 28px; position: sticky; top: 0; z-index: 3; background: var(--panel); }
+.tl-label { padding: 0 10px; font-size: 12.5px; display: flex; align-items: center; gap: 6px; border-right: 1px solid var(--line);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: var(--panel); position: sticky; left: 0; z-index: 2; }
+.tl-row.part .tl-label { font-weight: 500; }
+.tl-row.part.sel { background: var(--accent-soft); }
+.tl-row.part.sel .tl-label { background: var(--accent-soft); color: var(--accent-text); }
+.tl-row.prop .tl-label { padding-left: 24px; color: var(--muted); font-size: 12px; cursor: default; }
+.tl-row.prop { background: var(--panel-2); }
+.track { position: relative; cursor: text; }
+.ruler .track { cursor: ew-resize; }
+.tick { position: absolute; bottom: 0; width: 1px; background: var(--line-strong); height: 6px; }
+.tick.major { height: 10px; }
+.tick span { position: absolute; bottom: 11px; left: 3px; font: 11px var(--f-num); color: var(--muted); white-space: nowrap; }
+.dot { position: absolute; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--muted); opacity: 0.7; pointer-events: none; }
+.kf { position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; transform: rotate(45deg); background: var(--accent);
+  border: 1.5px solid var(--panel); cursor: ew-resize; border-radius: 1px; }
+.kf.img { transform: none; border-radius: 3px; background: var(--ink); }
+.kf.sel { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kf.step { background: var(--panel); border-color: var(--accent); }
+.fade { position: absolute; top: 50%; height: 4px; margin-top: -2px; background: var(--ink); opacity: 0.35; border-radius: 2px; pointer-events: none; }
+.endzone { position: absolute; top: 0; bottom: 0; right: 0; background: var(--bg); opacity: 0.6; pointer-events: none; }
+#phLayer { position: absolute; top: 0; bottom: 0; left: var(--lab); right: 0; pointer-events: none; z-index: 4; }
+#playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); }
+#playhead::before { content: ""; position: absolute; top: 0; left: -5px; width: 12px; height: 10px; background: var(--accent); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.tl-empty { padding: 28px 18px; color: var(--muted); font-size: 13px; }
+
+.dlg { position: fixed; inset: 0; background: rgba(10, 15, 20, 0.5); display: grid; place-items: center; z-index: 50;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; }
+.dlg-card { background: var(--panel); border-radius: 14px; padding: 18px; width: min(560px, 100%); display: grid; gap: 10px; border: 1px solid var(--line); }
+.dlg-card h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.dlg-card textarea { width: 100%; height: 180px; font: 11px/1.4 var(--f-num); border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--panel-2); resize: vertical; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--panel);
+  padding: 8px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 60; max-width: calc(100% - 32px); text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 980px) {
+  html, body { height: auto; }
+  .app { display: flex; flex-direction: column; height: auto; }
+  .stage-col { order: 1; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .stage-wrap { flex: none; min-height: 0; overflow: visible; }
+  #stage { max-width: 520px; }
+  .timeline { order: 2; height: 300px; }
+  .side { order: 3; }
+  .parts { order: 4; }
+  .panel { overflow: visible; }
+  .timeline.panel { overflow: hidden; }
+  .tabs { position: static; }
+  :root { --lab: 112px; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <div class="stripe" aria-hidden="true"></div>
+      <div><h1>차로차로 모션 에디터</h1><small>파츠 · 키프레임 · 반응 규칙</small></div>
+    </div>
+    <div class="bar-actions">
+      <button class="btn" id="bUndo" title="되돌리기 (Ctrl+Z)">되돌리기</button>
+      <button class="btn" id="bRedo" title="다시 하기 (Ctrl+Shift+Z)">다시 하기</button>
+      <label class="btn" for="fLoad">불러오기</label>
+      <input type="file" id="fLoad" accept=".json,application/json" hidden>
+      <button class="btn primary" id="bSave">저장 (.json)</button>
+      <span class="save-state" id="saveState" aria-live="polite"></span>
+    </div>
+  </header>
+
+  <aside class="panel parts" aria-label="파츠">
+    <div class="panel-h"><h2>파츠</h2>
+      <label class="btn sm" for="fParts">+ 파츠 추가</label>
+      <input type="file" id="fParts" multiple accept="image/png,image/webp,image/jpeg,image/svg+xml" hidden>
+    </div>
+    <p class="hint">위에 있을수록 앞에 그려져요. 같은 크기로 저장한 파츠 PNG를 한꺼번에 올리면 제자리에 맞춰져요.</p>
+    <ul id="partList"></ul>
+  </aside>
+
+  <main class="stage-col">
+    <div class="stage-top">
+      <div class="seg" role="group" aria-label="모드">
+        <button id="mEdit" aria-pressed="true">편집</button>
+        <button id="mTest" aria-pressed="false">반응 테스트</button>
+      </div>
+      <span class="chip" id="ctxChip"></span>
+    </div>
+    <div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" aria-label="캐릭터 무대"></canvas></div>
+    <p class="hint" id="stageHint"></p>
+    <div class="testbar" id="testBar" hidden>
+      <div class="row"><span class="chip live" id="tsLayer"></span><span class="chip" id="tsOne"></span></div>
+      <div class="row">
+        <button class="btn sm" id="tType">타자 신호 보내기</button>
+        <button class="btn sm" id="tIdle">가만히 있는 상태로 건너뛰기</button>
+        <label for="tHour">시각 <select id="tHour"></select></label>
+      </div>
+      <p class="hint">캐릭터를 클릭하거나, 마우스를 움직이거나, 키보드를 눌러보세요. 사이트에서도 똑같이 반응해요.</p>
+    </div>
+  </main>
+
+  <aside class="panel side" aria-label="설정">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabBtn-props" data-tab="props" aria-selected="true">속성</button>
+      <button role="tab" id="tabBtn-rules" data-tab="rules" aria-selected="false">반응 규칙</button>
+      <button role="tab" id="tabBtn-site" data-tab="site" aria-selected="false">사이트 설정</button>
+    </div>
+    <div class="tab-body" id="tab-props" role="tabpanel"></div>
+    <div class="tab-body" id="tab-rules" role="tabpanel" hidden></div>
+    <div class="tab-body" id="tab-site" role="tabpanel" hidden></div>
+  </aside>
+
+  <section class="panel timeline" id="timeline" aria-label="타임라인">
+    <div class="tl-bar">
+      <label for="clipSel" class="hint">동작</label>
+      <select id="clipSel"></select>
+      <input type="text" id="clipName" aria-label="동작 이름">
+      <label class="hint" for="clipDur">길이</label>
+      <input type="number" id="clipDur" min="0.1" max="30" step="0.05" aria-label="동작 길이(초)"><span class="hint">초</span>
+      <label class="check"><input type="checkbox" id="clipLoop"> 반복</label>
+      <span class="sep" aria-hidden="true"></span>
+      <button class="btn sm" id="bPlay">재생</button>
+      <button class="btn sm ghost" id="bRewind">처음으로</button>
+      <span class="tl-time" id="tlTime"></span>
+      <span class="sep" aria-hidden="true"></span>
+      <button class="btn sm" id="bNewClip">새 동작</button>
+      <button class="btn sm" id="bDupClip">복제</button>
+      <button class="btn sm danger" id="bDelClip">삭제</button>
+    </div>
+    <div class="tl-scroll" id="tlScroll"><div id="tl"></div></div>
+  </section>
+</div>
+
+<div class="dlg" id="dlg" hidden role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+  <div class="dlg-card">
+    <h2 id="dlgTitle">파일로 저장하기</h2>
+    <p class="hint">이 화면에서는 파일 저장이 막혀 있어요. 아래 내용을 복사해서 메모장에 붙여 넣고 <b>charo-pet.json</b> 이름으로 저장하세요.</p>
+    <textarea id="dlgText" readonly aria-label="저장할 내용"></textarea>
+    <div class="inline"><button class="btn primary" id="dlgCopy">전체 복사</button><button class="btn" id="dlgClose">닫기</button></div>
+  </div>
+</div>
+<input type="file" id="fVar" accept="image/png,image/webp,image/jpeg,image/svg+xml" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/*!
+ * 차로차로 펫 재생기 (charo-pet.js) v1
+ * 에디터에서 저장한 charo-pet.json 을 읽어 화면 하단에 캐릭터를 띄웁니다.
+ * 사용법: index.html의 body 끝에 아래처럼 script 태그 한 줄을 넣습니다.
+ *   script src="charo-pet.js" data-src="charo-pet.json" defer
+ * 키보드 반응은 "키가 눌렸다"는 신호만 쓰며, 입력한 글자는 읽지 않습니다.
+ */
+(function (global) {
+  'use strict';
+
+  var PROPS = ['x', 'y', 'rot', 'sx', 'sy', 'op'];
+  var DEF = { x: 0, y: 0, rot: 0, sx: 1, sy: 1, op: 1 };
+
+  var EASE = {
+    linear: function (t) { return t; },
+    'in': function (t) { return t * t; },
+    out: function (t) { return 1 - (1 - t) * (1 - t); },
+    inout: function (t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; },
+    back: function (t) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+    step: function () { return 0; }
+  };
+
+  function sampleTrack(keys, t) {
+    if (!keys || !keys.length) return null;
+    if (t <= keys[0].t) return keys[0].v;
+    for (var i = 0; i < keys.length - 1; i++) {
+      var a = keys[i], b = keys[i + 1];
+      if (t < b.t) {
+        var span = b.t - a.t;
+        var u = span > 0 ? (t - a.t) / span : 1;
+        var f = (EASE[a.e] || EASE.linear)(u);
+        return a.v + (b.v - a.v) * f;
+      }
+    }
+    return keys[keys.length - 1].v;
+  }
+
+  // 그림 바꿔치기: 마지막으로 지난 키의 그림으로, f(초) 동안 이전 그림에서 서서히 바뀜
+  function sampleImg(keys, t, restImg, loop) {
+    if (!keys || !keys.length) return null;
+    var cur = -1;
+    for (var i = 0; i < keys.length; i++) { if (keys[i].t <= t + 1e-6) cur = i; else break; }
+    if (cur < 0) {
+      if (!loop) return null;
+      var lv = keys[keys.length - 1].v;
+      return { img: lv, prev: lv, mix: 1 };
+    }
+    var k = keys[cur];
+    var prev = cur > 0 ? keys[cur - 1].v : (loop ? keys[keys.length - 1].v : restImg);
+    var mix = k.f > 0 ? Math.min(1, (t - k.t) / k.f) : 1;
+    return { img: k.v, prev: prev, mix: mix };
+  }
+
+  function findClip(p, id) {
+    if (!id || !p.clips) return null;
+    for (var i = 0; i < p.clips.length; i++) if (p.clips[i].id === id) return p.clips[i];
+    return null;
+  }
+  function findPart(p, id) {
+    if (!id) return null;
+    for (var i = 0; i < p.parts.length; i++) if (p.parts[i].id === id) return p.parts[i];
+    return null;
+  }
+
+  // 한 동작의 t초 시점 값 (키가 있는 속성만)
+  function clipPose(p, clip, t) {
+    var out = {};
+    if (!clip || !clip.tracks) return out;
+    for (var pid in clip.tracks) {
+      if (!Object.prototype.hasOwnProperty.call(clip.tracks, pid)) continue;
+      var part = findPart(p, pid);
+      if (!part) continue;
+      var tr = clip.tracks[pid], o = {}, any = false;
+      for (var j = 0; j < PROPS.length; j++) {
+        var v = sampleTrack(tr[PROPS[j]], t);
+        if (v !== null) { o[PROPS[j]] = v; any = true; }
+      }
+      var im = sampleImg(tr.img, t, part.rest.img || 0, !!clip.loop);
+      if (im) { o.img = im; any = true; }
+      if (any) out[pid] = o;
+    }
+    return out;
+  }
+
+  // 키가 없는 속성은 기본값(변화 없음)으로 채움
+  function offsetsFrom(p, pose) {
+    var off = {};
+    for (var i = 0; i < p.parts.length; i++) {
+      var part = p.parts[i], src = pose[part.id] || {}, o = {};
+      for (var j = 0; j < PROPS.length; j++) {
+        var k = PROPS[j];
+        o[k] = src[k] != null ? src[k] : DEF[k];
+      }
+      o.img = src.img || null;
+      off[part.id] = o;
+    }
+    return off;
+  }
+
+  // 기본 자세 + 동작 변화량 = 최종 자세
+  function finalPose(p, off, follow) {
+    var res = {};
+    for (var i = 0; i < p.parts.length; i++) {
+      var part = p.parts[i], r = part.rest;
+      var o = (off && off[part.id]) || DEF;
+      var f = {
+        x: r.x + o.x, y: r.y + o.y, rot: r.rot + o.rot,
+        sx: r.sx * o.sx, sy: r.sy * o.sy, op: r.op * o.op
+      };
+      var im = o.img;
+      f.img = im ? im.img : (r.img || 0);
+      f.prev = im ? im.prev : f.img;
+      f.mix = im ? im.mix : 1;
+      if (follow && part.follow && part.follow.on) {
+        f.x += follow.x * (part.follow.max || 0);
+        f.y += follow.y * (part.follow.max || 0);
+      }
+      res[part.id] = f;
+    }
+    return res;
+  }
+
+  // 2D 변환 행렬 [a,b,c,d,e,f] (canvas setTransform 순서)
+  function mul(A, B) {
+    return [
+      A[0] * B[0] + A[2] * B[1], A[1] * B[0] + A[3] * B[1],
+      A[0] * B[2] + A[2] * B[3], A[1] * B[2] + A[3] * B[3],
+      A[0] * B[4] + A[2] * B[5] + A[4], A[1] * B[4] + A[3] * B[5] + A[5]
+    ];
+  }
+  function inv(m) {
+    var det = m[0] * m[3] - m[1] * m[2];
+    if (Math.abs(det) < 1e-12) det = det < 0 ? -1e-12 : 1e-12;
+    var a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
+    return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
+  }
+  function apply(m, x, y) { return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }
+  function localM(f, pv) {
+    var r = f.rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+    var a = c * f.sx, b = s * f.sx, cc = -s * f.sy, d = c * f.sy;
+    return [a, b, cc, d, f.x - (a * pv.x + cc * pv.y), f.y - (b * pv.x + d * pv.y)];
+  }
+  function worldMatrices(p, pose) {
+    var W = {}, busy = {};
+    function get(id) {
+      if (W[id]) return W[id];
+      var part = findPart(p, id);
+      if (!part || busy[id] || !pose[id]) return [1, 0, 0, 1, 0, 0];
+      busy[id] = true;
+      var L = localM(pose[id], part.pivot);
+      var m = part.parent && findPart(p, part.parent) ? mul(get(part.parent), L) : L;
+      busy[id] = false;
+      W[id] = m;
+      return m;
+    }
+    for (var i = 0; i < p.parts.length; i++) get(p.parts[i].id);
+    return W;
+  }
+
+  // 그림 캐시
+  var cache = {};
+  function imgFor(p, assetId) {
+    var src = p.assets && p.assets[assetId];
+    if (!src) return null;
+    var e = cache[assetId];
+    if (!e || e._src !== src) {
+      e = new Image();
+      e._src = src;
+      e.src = src;
+      cache[assetId] = e;
+    }
+    return e.complete && e.naturalWidth ? e : null;
+  }
+  function preload(p) {
+    var ids = [];
+    p.parts.forEach(function (pt) { pt.images.forEach(function (v) { ids.push(v.asset); }); });
+    return Promise.all(ids.map(function (id) {
+      return new Promise(function (res) {
+        var src = p.assets && p.assets[id];
+        if (!src) return res();
+        var e = cache[id];
+        if (!e || e._src !== src) { e = new Image(); e._src = src; cache[id] = e; e.src = src; }
+        if (e.complete && e.naturalWidth) return res();
+        e.onload = e.onerror = function () { res(); };
+      });
+    }));
+  }
+
+  function drawVariant(ctx, p, part, idx, alpha) {
+    if (alpha <= 0.001) return;
+    var v = part.images[idx] || part.images[0];
+    if (!v) return;
+    var im = imgFor(p, v.asset);
+    if (!im) return;
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.drawImage(im, 0, 0, v.w || im.naturalWidth, v.h || im.naturalHeight);
+  }
+
+  function render(ctx, p, fp, W, view) {
+    for (var i = 0; i < p.parts.length; i++) {
+      var part = p.parts[i], f = fp[part.id];
+      if (!f || f.op <= 0.001) continue;
+      var m = mul(view, W[part.id]);
+      ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      if (f.prev !== f.img && f.mix < 1) {
+        drawVariant(ctx, p, part, f.prev, f.op * (1 - f.mix));
+        drawVariant(ctx, p, part, f.img, f.op * f.mix);
+      } else {
+        drawVariant(ctx, p, part, f.img, f.op);
+      }
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+
+  function inHours(h, a, b) {
+    a = +a; b = +b;
+    if (a === b) return false;
+    return a < b ? (h >= a && h < b) : (h >= a || h < b);
+  }
+
+  // 반응 규칙 엔진
+  function Engine(p) { this.p = p; this.reset(); }
+  Engine.prototype.reset = function () {
+    var n = (global.performance && performance.now()) || 0;
+    this.t = n; this.lastInput = n; this.one = null; this.layer = undefined;
+    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.hour = null;
+  };
+  Engine.prototype.input = function () { this.lastInput = this.t; };
+  Engine.prototype.skipIdle = function (sec) { this.lastInput -= sec * 1000; };
+  Engine.prototype._snap = function () {
+    if (!this.last) return;
+    var c = {};
+    for (var pid in this.last) {
+      c[pid] = {};
+      for (var j = 0; j < PROPS.length; j++) c[pid][PROPS[j]] = this.last[pid][PROPS[j]];
+    }
+    this.blend = { start: this.t, from: c };
+  };
+  Engine.prototype.trigger = function (ev) {
+    this.input();
+    var rules = this.p.rules || [], r = null;
+    for (var i = 0; i < rules.length; i++) {
+      if (rules[i].event === ev && findClip(this.p, rules[i].clip)) { r = rules[i]; break; }
+    }
+    if (!r) return false;
+    if (this.one && !r.interrupt) return false;
+    this._snap();
+    this.one = { id: r.clip, start: this.t };
+    return true;
+  };
+  Engine.prototype.stateClip = function () {
+    var hour = this.hour != null ? this.hour : new Date().getHours();
+    var idle = (this.t - this.lastInput) / 1000;
+    var rules = this.p.rules || [];
+    for (var i = 0; i < rules.length; i++) {
+      var r = rules[i];
+      if (!findClip(this.p, r.clip)) continue;
+      if (r.event === 'idle' && idle >= (+r.sec || 30)) return r.clip;
+      if (r.event === 'time' && inHours(hour, r.from, r.to)) return r.clip;
+    }
+    return this.p.baseClip || null;
+  };
+  Engine.prototype.update = function (t) {
+    this.t = t;
+    var p = this.p, self = this, rules = p.rules || [];
+    rules.forEach(function (r) {
+      if (r.event !== 'random') return;
+      var mn = Math.max(0.5, +r.min || 3), mx = Math.max(mn, +r.max || mn);
+      var next = self.nextRand[r.id];
+      if (next == null) {
+        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
+      } else if (t >= next) {
+        // 랜덤 동작은 평소 동작 중일 때만 (졸고 있을 때 깜빡이며 눈을 뜨지 않도록)
+        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t }; }
+        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
+      }
+    });
+    var layer = this.stateClip();
+    if (layer !== this.layer) {
+      if (this.layer !== undefined) this._snap();
+      this.layer = layer; this.layerStart = t;
+    }
+    var clip = findClip(p, layer), pose = {};
+    if (clip) {
+      var el = (t - this.layerStart) / 1000;
+      var tl = clip.loop ? (clip.dur > 0 ? el % clip.dur : 0) : Math.min(el, clip.dur);
+      pose = clipPose(p, clip, tl);
+    }
+    if (this.one) {
+      var oc = findClip(p, this.one.id), to = (t - this.one.start) / 1000;
+      if (!oc || to >= oc.dur) {
+        this._snap(); this.one = null;
+      } else {
+        var op = clipPose(p, oc, to);
+        for (var pid in op) {
+          var dst = pose[pid] || (pose[pid] = {});
+          for (var k in op[pid]) dst[k] = op[pid][k];
+        }
+      }
+    }
+    var off = offsetsFrom(p, pose);
+    if (this.blend) {
+      var u = (t - this.blend.start) / 160;
+      if (u >= 1) this.blend = null;
+      else {
+        u = EASE.out(u);
+        for (var id in off) {
+          var a = this.blend.from[id];
+          if (!a) continue;
+          for (var j = 0; j < PROPS.length; j++) {
+            var pr = PROPS[j];
+            off[id][pr] = a[pr] + (off[id][pr] - a[pr]) * u;
+          }
+        }
+      }
+    }
+    this.last = off;
+    return off;
+  };
+
+  // ---------- 사이트 하단 표시 ----------
+  function store(key, val) {
+    try {
+      if (val === undefined) return global.localStorage.getItem(key);
+      global.localStorage.setItem(key, val);
+    } catch (e) { return null; }
+    return null;
+  }
+
+  function SitePet(p) {
+    var d = {}, base = { size: 140, corner: 'right', margin: 16, hideOnMobile: true, closable: true };
+    for (var k in base) d[k] = base[k];
+    for (k in (p.display || {})) d[k] = p.display[k];
+    if (d.hideOnMobile && global.matchMedia && matchMedia('(max-width: 640px)').matches) return;
+    var reduce = global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var side = d.corner === 'left' ? 'left' : 'right', other = side === 'left' ? 'right' : 'left';
+    var size = Math.max(40, +d.size || 140), margin = Math.max(0, +d.margin || 0);
+
+    var wrap = document.createElement('div');
+    wrap.setAttribute('data-charo-pet', '');
+    wrap.style.cssText = 'position:fixed;bottom:' + margin + 'px;' + side + ':' + margin + 'px;z-index:9999;width:' +
+      size + 'px;height:' + size + 'px;pointer-events:none;';
+    var cv = document.createElement('canvas');
+    cv.setAttribute('role', 'img');
+    cv.setAttribute('aria-label', p.name || '캐릭터');
+    cv.style.cssText = 'width:100%;height:100%;display:block;pointer-events:auto;cursor:pointer;touch-action:manipulation;';
+    wrap.appendChild(cv);
+
+    var btnCss = 'position:absolute;top:-4px;' + other + ':-4px;width:24px;height:24px;border-radius:50%;' +
+      'border:1px solid rgba(0,0,0,.18);background:#fff;color:#333;font:16px/1 system-ui,sans-serif;' +
+      'cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .2s;padding:0;';
+    var close = null, tab = null, hidden = false;
+    if (d.closable) {
+      close = document.createElement('button');
+      close.type = 'button';
+      close.setAttribute('aria-label', '캐릭터 숨기기');
+      close.textContent = '\u00D7';
+      close.style.cssText = btnCss;
+      wrap.appendChild(close);
+      wrap.addEventListener('pointerenter', function () { close.style.opacity = '1'; });
+      wrap.addEventListener('pointerleave', function () { close.style.opacity = '0'; });
+      close.addEventListener('focus', function () { close.style.opacity = '1'; });
+      close.addEventListener('blur', function () { close.style.opacity = '0'; });
+      tab = document.createElement('button');
+      tab.type = 'button';
+      tab.textContent = (p.name || '캐릭터') + ' 보이기';
+      tab.style.cssText = 'position:fixed;bottom:' + margin + 'px;' + side + ':' + margin + 'px;z-index:9999;' +
+        'display:none;padding:6px 12px;border-radius:999px;border:1px solid rgba(0,0,0,.18);background:#fff;' +
+        'color:#333;font:13px/1.2 system-ui,sans-serif;cursor:pointer;';
+      document.body.appendChild(tab);
+    }
+    document.body.appendChild(wrap);
+
+    var ctx = cv.getContext('2d');
+    var dpr = 1;
+    function resize() {
+      dpr = Math.min(3, global.devicePixelRatio || 1);
+      cv.width = Math.round(size * dpr);
+      cv.height = Math.round(size * dpr);
+    }
+    resize();
+    global.addEventListener('resize', resize);
+
+    var eng = new Engine(p);
+    var follow = { x: 0, y: 0 }, tgt = { x: 0, y: 0 };
+    var S = p.stage || { w: 400, h: 400 };
+    var raf = 0;
+
+    function draw(t) {
+      var off = reduce ? offsetsFrom(p, {}) : eng.update(t);
+      follow.x += (tgt.x - follow.x) * 0.12;
+      follow.y += (tgt.y - follow.y) * 0.12;
+      var sc = size / Math.max(S.w, S.h) * dpr;
+      var view = [sc, 0, 0, sc, (cv.width - S.w * sc) / 2, (cv.height - S.h * sc) / 2];
+      var fp = finalPose(p, off, reduce ? null : follow);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      render(ctx, p, fp, worldMatrices(p, fp), view);
+    }
+    function loop(t) {
+      if (hidden || document.hidden) { raf = 0; return; }
+      draw(t);
+      raf = requestAnimationFrame(loop);
+    }
+    function wake() { if (!raf && !hidden && !document.hidden) raf = requestAnimationFrame(loop); }
+
+    function setHidden(h) {
+      hidden = h;
+      wrap.style.display = h ? 'none' : '';
+      if (tab) tab.style.display = h ? 'block' : 'none';
+      store('charoPetHidden', h ? '1' : '0');
+      if (!h) { eng.input(); wake(); }
+    }
+    if (close) {
+      close.addEventListener('click', function (e) { e.stopPropagation(); setHidden(true); });
+      tab.addEventListener('click', function () { setHidden(false); });
+      if (store('charoPetHidden') === '1') setHidden(true);
+    }
+
+    document.addEventListener('pointermove', function (e) {
+      eng.input();
+      var r = cv.getBoundingClientRect();
+      var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 1) { tgt.x = 0; tgt.y = 0; return; }
+      var kk = Math.min(1, len / 250);
+      tgt.x = dx / len * kk; tgt.y = dy / len * kk;
+    }, { passive: true });
+    document.addEventListener('keydown', function () { if (!reduce) eng.trigger('type'); });
+    global.addEventListener('scroll', function () { eng.input(); }, { passive: true });
+    cv.addEventListener('click', function () { if (!reduce) eng.trigger('click'); });
+    cv.addEventListener('pointerenter', function () { if (!reduce) eng.trigger('hover'); });
+    document.addEventListener('visibilitychange', wake);
+    wake();
+  }
+
+  function mount(script) {
+    var src = script.getAttribute('data-src') || 'charo-pet.json';
+    function start() {
+      fetch(src, { cache: 'no-cache' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (p) { return preload(p).then(function () { new SitePet(p); }); })
+        .catch(function (e) { console.warn('[charo-pet] 캐릭터 파일을 불러오지 못했습니다:', src, e); });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
+  }
+
+  global.CharoPet = {
+    PROPS: PROPS, DEF: DEF, EASE: EASE, sampleTrack: sampleTrack, sampleImg: sampleImg,
+    findClip: findClip, findPart: findPart, clipPose: clipPose, offsetsFrom: offsetsFrom,
+    finalPose: finalPose, mul: mul, inv: inv, apply: apply, localM: localM,
+    worldMatrices: worldMatrices, imgFor: imgFor, preload: preload, render: render,
+    Engine: Engine, mount: mount, inHours: inHours
+  };
+
+  var cs = document.currentScript;
+  if (cs && cs.hasAttribute('data-src')) mount(cs);
+})(window);
+
+</script>
+<script>
+(function () {
+'use strict';
+var CP = window.CharoPet;
+var $ = function (id) { return document.getElementById(id); };
+var PROPS = CP.PROPS;
+var LBL = {
+  rest: { x: 'X 위치', y: 'Y 위치', rot: '기본 각도', sx: '가로 크기', sy: '세로 크기', op: '투명도' },
+  clip: { x: '좌우 이동', y: '위아래 이동', rot: '회전', sx: '가로 배율', sy: '세로 배율', op: '투명도' }
+};
+var TL_LBL = { x: '좌우 이동', y: '위아래 이동', rot: '회전', sx: '가로 배율', sy: '세로 배율', op: '투명도', img: '그림 바꾸기' };
+var UNIT = { x: 'px', y: 'px', rot: '°', sx: '%', sy: '%', op: '%' };
+var PCT = { sx: 1, sy: 1, op: 1 };
+var EASES = [['inout', '부드럽게'], ['out', '천천히 끝나게'], ['in', '천천히 시작'], ['linear', '일정하게'], ['back', '튕기듯 지나쳤다 돌아오기'], ['step', '뚝 끊기 (다음 키까지 유지)']];
+var EVENTS = [['click', '클릭할 때'], ['hover', '마우스를 올렸을 때'], ['type', '타자를 칠 때'], ['random', '가끔 랜덤으로'], ['idle', '한동안 가만히 있으면'], ['time', '특정 시간대에']];
+var EPS = 0.004;
+var POOL = {};
+var ICON = {
+  up: '<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>',
+  down: '<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
+  eye: '<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>',
+  eyeOff: '<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2l12 12M6.5 4C7 3.6 7.5 3.5 8 3.5c4.1 0 6.5 4.5 6.5 4.5s-.7 1.3-2 2.6M4.3 5.2C2.6 6.4 1.5 8 1.5 8S3.9 12.5 8 12.5c1 0 1.9-.3 2.7-.7"/></svg>',
+  trash: '<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 9h6.6l.7-9"/></svg>'
+};
+
+function uid(p) { return p + Math.random().toString(36).slice(2, 9); }
+function r2(v) { return Math.round(v * 100) / 100; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+// ---------- 예시 캐릭터 (임시 도형) ----------
+function svgURI(w, h, inner) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' + inner + '</svg>');
+}
+function K(t, v, e) { return { t: t, v: v, e: e || 'inout' }; }
+function makeExample() {
+  var ink = '#24313D', snow = '#FFFFFF';
+  var arm = '<rect x="3" y="3" width="64" height="22" rx="11" fill="' + snow + '" stroke="' + ink + '" stroke-width="4"/>';
+  var assets = {
+    ex_body: svgURI(200, 200, '<ellipse cx="100" cy="104" rx="90" ry="92" fill="' + snow + '" stroke="' + ink + '" stroke-width="4"/>' +
+      '<path d="M14 126 Q100 156 186 126 L183 144 Q100 174 17 144 Z" fill="#F07F1F"/>' +
+      '<circle cx="50" cy="104" r="9" fill="#F7B9B0"/><circle cx="150" cy="104" r="9" fill="#F7B9B0"/>' +
+      '<path d="M90 108 Q100 117 110 108" fill="none" stroke="' + ink + '" stroke-width="4" stroke-linecap="round"/>'),
+    ex_eyes: svgURI(120, 50, '<ellipse cx="35" cy="25" rx="16" ry="20" fill="' + snow + '" stroke="' + ink + '" stroke-width="3.5"/><ellipse cx="85" cy="25" rx="16" ry="20" fill="' + snow + '" stroke="' + ink + '" stroke-width="3.5"/>'),
+    ex_eyesC: svgURI(120, 50, '<path d="M20 26 Q35 38 50 26" fill="none" stroke="' + ink + '" stroke-width="4" stroke-linecap="round"/><path d="M70 26 Q85 38 100 26" fill="none" stroke="' + ink + '" stroke-width="4" stroke-linecap="round"/>'),
+    ex_pupils: svgURI(120, 50, '<circle cx="35" cy="27" r="7.5" fill="' + ink + '"/><circle cx="85" cy="27" r="7.5" fill="' + ink + '"/><circle cx="37.5" cy="24" r="2.2" fill="#FFFFFF"/><circle cx="87.5" cy="24" r="2.2" fill="#FFFFFF"/>'),
+    ex_armL: svgURI(70, 28, arm),
+    ex_armR: svgURI(70, 28, arm)
+  };
+  function R(x, y) { return { x: x, y: y, rot: 0, sx: 1, sy: 1, op: 1, img: 0 }; }
+  var parts = [
+    { id: 'armL', name: '왼팔', parent: 'body', pivot: { x: 64, y: 14 }, rest: R(24, 118), images: [{ name: '왼팔', asset: 'ex_armL', w: 70, h: 28 }], follow: { on: false, max: 6 } },
+    { id: 'armR', name: '오른팔', parent: 'body', pivot: { x: 6, y: 14 }, rest: R(176, 118), images: [{ name: '오른팔', asset: 'ex_armR', w: 70, h: 28 }], follow: { on: false, max: 6 } },
+    { id: 'body', name: '몸통', parent: null, pivot: { x: 100, y: 196 }, rest: R(200, 360), images: [{ name: '몸통', asset: 'ex_body', w: 200, h: 200 }], follow: { on: false, max: 6 } },
+    { id: 'eyes', name: '눈', parent: 'body', pivot: { x: 60, y: 25 }, rest: R(100, 72), images: [{ name: '뜬 눈', asset: 'ex_eyes', w: 120, h: 50 }, { name: '감은 눈', asset: 'ex_eyesC', w: 120, h: 50 }], follow: { on: false, max: 6 } },
+    { id: 'pupils', name: '눈동자', parent: 'eyes', pivot: { x: 60, y: 25 }, rest: R(60, 25), images: [{ name: '눈동자', asset: 'ex_pupils', w: 120, h: 50 }], follow: { on: true, max: 7 } }
+  ];
+  var fl = [K(0, 0)], fr = [K(0, 0)], up = true;
+  for (var i = 0; i < 11; i++) {
+    var tt = r2(0.18 + i * 0.09), v = up ? 50 : -15;
+    fl.push(K(tt, v)); fr.push(K(tt, -v)); up = !up;
+  }
+  fl.push(K(1.28, 0)); fr.push(K(1.28, 0));
+  var clips = [
+    { id: 'c_breath', name: '숨쉬기', dur: 2.4, loop: true, tracks: {
+      body: { sy: [K(0, 1), K(1.2, 1.035), K(2.4, 1)], sx: [K(0, 1), K(1.2, 0.985), K(2.4, 1)] },
+      armL: { rot: [K(0, 0), K(1.2, 6), K(2.4, 0)] }, armR: { rot: [K(0, 0), K(1.2, -6), K(2.4, 0)] } } },
+    { id: 'c_jump', name: '파닥 점프', dur: 1.45, loop: false, tracks: {
+      body: {
+        y: [K(0, 0, 'linear'), K(0.15, 0, 'out'), K(0.55, -90, 'inout'), K(0.85, -95, 'in'), K(1.15, 0, 'linear'), K(1.45, 0)],
+        sy: [K(0, 1, 'out'), K(0.15, 0.8, 'out'), K(0.35, 1.12, 'inout'), K(0.6, 1, 'linear'), K(1.05, 1.05, 'out'), K(1.18, 0.82, 'out'), K(1.45, 1)],
+        sx: [K(0, 1, 'out'), K(0.15, 1.15, 'out'), K(0.35, 0.92, 'inout'), K(0.6, 1, 'linear'), K(1.05, 0.97, 'out'), K(1.18, 1.14, 'out'), K(1.45, 1)] },
+      armL: { rot: fl }, armR: { rot: fr } } },
+    { id: 'c_blink', name: '깜빡임', dur: 0.3, loop: false, tracks: {
+      eyes: { sy: [K(0, 1, 'in'), K(0.08, 0.25, 'linear'), K(0.16, 0.25, 'out'), K(0.28, 1)],
+        img: [{ t: 0.08, v: 1, f: 0.02 }, { t: 0.17, v: 0, f: 0.02 }] },
+      pupils: { op: [K(0, 1, 'step'), K(0.07, 0, 'step'), K(0.18, 0, 'linear'), K(0.21, 1)] } } },
+    { id: 'c_cheer', name: '신남', dur: 0.5, loop: false, tracks: {
+      armL: { rot: [K(0, 0), K(0.12, 30), K(0.25, 0), K(0.37, 30), K(0.5, 0)] },
+      armR: { rot: [K(0, 0), K(0.12, -30), K(0.25, 0), K(0.37, -30), K(0.5, 0)] },
+      body: { y: [K(0, 0, 'out'), K(0.12, -8, 'in'), K(0.25, 0, 'out'), K(0.37, -8, 'in'), K(0.5, 0)] } } },
+    { id: 'c_sleep', name: '졸기', dur: 3.2, loop: true, tracks: {
+      eyes: { img: [{ t: 0, v: 1, f: 0 }], sy: [K(0, 0.9)] },
+      pupils: { op: [K(0, 0)] },
+      body: { rot: [K(0, -3), K(1.6, 3), K(3.2, -3)], sy: [K(0, 1), K(1.6, 1.03), K(3.2, 1)] },
+      armL: { rot: [K(0, -22)] }, armR: { rot: [K(0, 22)] } } }
+  ];
+  var rules = [
+    { id: 'r_click', event: 'click', clip: 'c_jump', interrupt: false },
+    { id: 'r_type', event: 'type', clip: 'c_cheer', interrupt: false },
+    { id: 'r_blink', event: 'random', clip: 'c_blink', min: 2.5, max: 6 },
+    { id: 'r_idle', event: 'idle', clip: 'c_sleep', sec: 30 },
+    { id: 'r_night', event: 'time', clip: 'c_sleep', from: 23, to: 6 }
+  ];
+  return { version: 1, name: '차로차로', stage: { w: 400, h: 400 }, parts: parts, clips: clips, rules: rules,
+    baseClip: 'c_breath', display: { size: 140, corner: 'right', margin: 16, hideOnMobile: true, closable: true }, assets: assets };
+}
+
+function normalize(p) {
+  if (!p || !Array.isArray(p.parts)) throw new Error('parts 없음');
+  p.version = 1;
+  p.name = p.name || '차로차로';
+  p.stage = p.stage && p.stage.w ? p.stage : { w: 400, h: 400 };
+  p.clips = Array.isArray(p.clips) ? p.clips : [];
+  p.rules = Array.isArray(p.rules) ? p.rules : [];
+  p.display = Object.assign({ size: 140, corner: 'right', margin: 16, hideOnMobile: true, closable: true }, p.display || {});
+  p.parts.forEach(function (pt) {
+    pt.id = pt.id || uid('p_');
+    pt.name = pt.name || '파츠';
+    pt.images = Array.isArray(pt.images) ? pt.images : [];
+    pt.pivot = pt.pivot || { x: 0, y: 0 };
+    pt.rest = Object.assign({ x: 200, y: 200, rot: 0, sx: 1, sy: 1, op: 1, img: 0 }, pt.rest || {});
+    pt.follow = Object.assign({ on: false, max: 6 }, pt.follow || {});
+    if (pt.parent === undefined) pt.parent = null;
+  });
+  p.clips.forEach(function (c) { c.tracks = c.tracks || {}; c.dur = +c.dur || 1; c.loop = !!c.loop; c.id = c.id || uid('c_'); });
+  p.rules.forEach(function (r) { r.id = r.id || uid('r_'); });
+  Object.assign(POOL, p.assets || {});
+  p.assets = POOL;
+  return p;
+}
+
+// ---------- 상태 ----------
+var STORE_KEY = 'charoMotionEditor.v1';
+function loadSaved() {
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return null;
+    return normalize(JSON.parse(raw));
+  } catch (e) { return null; }
+}
+var SAVED = loadSaved();
+var P = SAVED || normalize(makeExample());
+var S = { sel: null, clip: 'rest', t: 0, playing: false, selKey: null, mode: 'edit', tab: 'props', pivotEdit: false, hiddenParts: {} };
+if (CP.findPart(P, 'armL') && CP.findClip(P, 'c_jump')) { S.sel = 'armL'; S.clip = 'c_jump'; S.t = 0.45; }
+else { S.sel = P.parts.length ? P.parts[P.parts.length - 1].id : null; S.clip = P.clips.length ? P.clips[0].id : 'rest'; }
+
+function fixSelection() {
+  if (!CP.findPart(P, S.sel)) S.sel = P.parts.length ? P.parts[P.parts.length - 1].id : null;
+  if (S.clip !== 'rest' && !CP.findClip(P, S.clip)) S.clip = 'rest';
+  var c = curClip();
+  if (c) S.t = clamp(S.t, 0, c.dur); else S.t = 0;
+  if (S.selKey && !findSelKey()) S.selKey = null;
+}
+
+// ---------- 되돌리기 ----------
+var undoStack = [], redoStack = [], lastTag = '', lastTagTime = 0;
+function snapshot() { return JSON.stringify(P, function (k, v) { return k === 'assets' ? undefined : v; }); }
+function pushUndo(tag) {
+  var now = Date.now();
+  if (tag && tag === lastTag && now - lastTagTime < 700) { lastTagTime = now; return; }
+  lastTag = tag || ''; lastTagTime = now;
+  undoStack.push(snapshot());
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+  updateUndoBtns();
+}
+function restore(json) { P = JSON.parse(json); P.assets = POOL; fixSelection(); }
+function doUndo() { if (!undoStack.length) return; redoStack.push(snapshot()); restore(undoStack.pop()); lastTag = ''; changed(); toast('되돌렸어요'); }
+function doRedo() { if (!redoStack.length) return; undoStack.push(snapshot()); restore(redoStack.pop()); lastTag = ''; changed(); toast('다시 적용했어요'); }
+function updateUndoBtns() { $('bUndo').disabled = !undoStack.length; $('bRedo').disabled = !redoStack.length; }
+
+// ---------- 데이터 도우미 ----------
+function curClip() { return S.clip === 'rest' ? null : CP.findClip(P, S.clip); }
+function selPart() { return CP.findPart(P, S.sel); }
+function track(clip, pid, prop, create) {
+  clip.tracks = clip.tracks || {};
+  var tr = clip.tracks[pid];
+  if (!tr) { if (!create) return null; tr = clip.tracks[pid] = {}; }
+  var keys = tr[prop];
+  if (!keys) { if (!create) return null; keys = tr[prop] = []; }
+  return keys;
+}
+function keyIndex(keys, t) {
+  if (!keys) return -1;
+  for (var i = 0; i < keys.length; i++) if (Math.abs(keys[i].t - t) < EPS) return i;
+  return -1;
+}
+function cleanup(clip, pid, prop) {
+  var tr = clip.tracks[pid];
+  if (tr && tr[prop] && !tr[prop].length) delete tr[prop];
+  if (tr && !Object.keys(tr).length) delete clip.tracks[pid];
+}
+function setKey(clip, pid, prop, t, v, extra) {
+  var keys = track(clip, pid, prop, true);
+  t = r2(t);
+  var i = keyIndex(keys, t);
+  if (i >= 0) { keys[i].v = v; if (extra) Object.assign(keys[i], extra); }
+  else {
+    var k = prop === 'img' ? { t: t, v: v, f: 0 } : { t: t, v: v, e: 'inout' };
+    if (extra) Object.assign(k, extra);
+    keys.push(k);
+    keys.sort(function (a, b) { return a.t - b.t; });
+  }
+}
+function delKey(clip, pid, prop, t) {
+  var keys = track(clip, pid, prop, false);
+  if (!keys) return;
+  var i = keyIndex(keys, t);
+  if (i >= 0) keys.splice(i, 1);
+  cleanup(clip, pid, prop);
+}
+function findSelKey() {
+  if (!S.selKey) return null;
+  var c = curClip();
+  if (!c) return null;
+  var keys = track(c, S.selKey.pid, S.selKey.prop, false);
+  var i = keyIndex(keys, S.selKey.t);
+  return i >= 0 ? keys[i] : null;
+}
+function curOffsets() {
+  var c = curClip();
+  return CP.offsetsFrom(P, c ? CP.clipPose(P, c, S.t) : {});
+}
+function uiVal(part, prop, off) {
+  var c = curClip(), v;
+  if (!c) v = part.rest[prop];
+  else v = (off || curOffsets())[part.id][prop];
+  return PCT[prop] ? v * 100 : v;
+}
+function imgVal(part, off) {
+  var c = curClip();
+  if (!c) return part.rest.img || 0;
+  var o = (off || curOffsets())[part.id];
+  return o.img ? o.img.img : (part.rest.img || 0);
+}
+function setVal(part, prop, ui) {
+  var v = PCT[prop] ? ui / 100 : ui;
+  if (!isFinite(v)) return;
+  var c = curClip();
+  if (!c) part.rest[prop] = v;
+  else setKey(c, part.id, prop, S.t, v);
+}
+function depth(part) { var d = 0, p = part; while (p && p.parent && d < 20) { p = CP.findPart(P, p.parent); d++; } return d; }
+function isDescendant(aId, ofId) {
+  var p = CP.findPart(P, aId), n = 0;
+  while (p && p.parent && n < 50) { if (p.parent === ofId) return true; p = CP.findPart(P, p.parent); n++; }
+  return false;
+}
+function restWorld() {
+  var fp = CP.finalPose(P, CP.offsetsFrom(P, {}), null);
+  return CP.worldMatrices(P, fp);
+}
+function setParent(part, newParent) {
+  var W = restWorld();
+  var Wc = W[part.id];
+  var Wp = newParent ? W[newParent] : [1, 0, 0, 1, 0, 0];
+  var L = CP.mul(CP.inv(Wp), Wc);
+  var a = L[0], b = L[1], c = L[2], d = L[3];
+  var sx = Math.sqrt(a * a + b * b) || 1;
+  var rot = Math.atan2(b, a) * 180 / Math.PI;
+  var sy = (a * d - b * c) / sx;
+  part.parent = newParent;
+  part.rest.sx = sx; part.rest.sy = sy; part.rest.rot = rot;
+  part.rest.x = L[4] + (a * part.pivot.x + c * part.pivot.y);
+  part.rest.y = L[5] + (b * part.pivot.x + d * part.pivot.y);
+}
+
+// ---------- 무대 그리기 ----------
+var cv = $('stage'), ctx = cv.getContext('2d');
+var cssSize = 400, dpr = 1, handlePos = null;
+function fitStage() {
+  var wrap = $('stageWrap');
+  var w = wrap.clientWidth, h = wrap.clientHeight;
+  var size = Math.floor(Math.max(200, window.innerWidth <= 980 ? Math.min(w, 520) : Math.min(w, h || w)));
+  cv.style.width = size + 'px';
+  cv.style.height = size + 'px';
+  cssSize = size;
+  dpr = Math.min(3, window.devicePixelRatio || 1);
+  cv.width = Math.round(size * dpr);
+  cv.height = Math.round(size * dpr);
+  drawStage();
+}
+function viewM() { var sc = cv.width / Math.max(P.stage.w, P.stage.h); return [sc, 0, 0, sc, 0, 0]; }
+function editPose() {
+  var fp = CP.finalPose(P, curOffsets(), null);
+  for (var id in S.hiddenParts) if (S.hiddenParts[id] && fp[id]) fp[id].op = 0;
+  return { fp: fp, W: CP.worldMatrices(P, fp) };
+}
+function drawStage() {
+  if (S.mode === 'test') return;
+  var ep = editPose();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  // 바닥선
+  var v = viewM();
+  ctx.strokeStyle = cssVar('--line-strong');
+  ctx.lineWidth = 1 * dpr;
+  ctx.setLineDash([4 * dpr, 6 * dpr]);
+  var gy = 360 * v[0];
+  ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(cv.width, gy); ctx.stroke();
+  ctx.setLineDash([]);
+  CP.render(ctx, P, ep.fp, ep.W, v);
+  drawOverlay(ep.fp, ep.W);
+}
+function drawOverlay(fp, W) {
+  handlePos = null;
+  var part = selPart();
+  if (!part || S.hiddenParts[part.id]) return;
+  var f = fp[part.id];
+  var vr = part.images[f.img] || part.images[0];
+  if (!vr) return;
+  var M = CP.mul(viewM(), W[part.id]);
+  var pts = [[0, 0], [vr.w, 0], [vr.w, vr.h], [0, vr.h]].map(function (p) { return CP.apply(M, p[0], p[1]); });
+  var accent = cssVar('--accent'), panel = cssVar('--panel');
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.setLineDash([5 * dpr, 4 * dpr]);
+  ctx.beginPath();
+  pts.forEach(function (p, i) { if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); });
+  ctx.closePath(); ctx.stroke();
+  ctx.setLineDash([]);
+  var pv = CP.apply(M, part.pivot.x, part.pivot.y);
+  if (!S.pivotEdit) {
+    var hy = pv[1] - 52 * dpr;
+    if (hy < 12 * dpr) hy = pv[1] + 52 * dpr;
+    handlePos = [pv[0], hy];
+    ctx.strokeStyle = accent; ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.moveTo(pv[0], pv[1]); ctx.lineTo(pv[0], hy); ctx.stroke();
+    ctx.beginPath(); ctx.arc(pv[0], hy, 7 * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = panel; ctx.fill(); ctx.lineWidth = 2 * dpr; ctx.stroke();
+    ctx.beginPath(); ctx.arc(pv[0], hy, 3.2 * dpr, -Math.PI * 0.9, Math.PI * 0.4); ctx.lineWidth = 1.4 * dpr; ctx.stroke();
+  } else {
+    ctx.strokeStyle = accent; ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(pv[0] - 16 * dpr, pv[1]); ctx.lineTo(pv[0] + 16 * dpr, pv[1]);
+    ctx.moveTo(pv[0], pv[1] - 16 * dpr); ctx.lineTo(pv[0], pv[1] + 16 * dpr);
+    ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(pv[0], pv[1], (S.pivotEdit ? 8 : 5) * dpr, 0, Math.PI * 2);
+  ctx.fillStyle = accent; ctx.fill(); ctx.lineWidth = 2 * dpr; ctx.strokeStyle = panel; ctx.stroke();
+  ctx.restore();
+}
+
+// 그림의 투명한 부분은 클릭이 통과하도록
+var alphaCache = {};
+function alphaAt(vr, x, y) {
+  var e = alphaCache[vr.asset];
+  if (!e) {
+    var im = CP.imgFor(P, vr.asset);
+    if (!im) return true;
+    e = { ok: false };
+    try {
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(vr.w)); c.height = Math.max(1, Math.round(vr.h));
+      var cx = c.getContext('2d');
+      cx.drawImage(im, 0, 0, c.width, c.height);
+      e.data = cx.getImageData(0, 0, c.width, c.height).data; e.w = c.width; e.h = c.height; e.ok = true;
+    } catch (err) { e.ok = false; }
+    alphaCache[vr.asset] = e;
+  }
+  if (!e.ok) return true;
+  var ix = Math.floor(x), iy = Math.floor(y);
+  if (ix < 0 || iy < 0 || ix >= e.w || iy >= e.h) return false;
+  return e.data[(iy * e.w + ix) * 4 + 3] > 24;
+}
+function hitTest(sx, sy, fp, W) {
+  for (var i = P.parts.length - 1; i >= 0; i--) {
+    var part = P.parts[i], f = fp[part.id];
+    if (!f || f.op <= 0.02 || S.hiddenParts[part.id]) continue;
+    var vr = part.images[f.img] || part.images[0];
+    if (!vr) continue;
+    var q = CP.apply(CP.inv(W[part.id]), sx, sy);
+    if (q[0] >= 0 && q[1] >= 0 && q[0] <= vr.w && q[1] <= vr.h && alphaAt(vr, q[0], q[1])) return part.id;
+  }
+  return null;
+}
+
+// ---------- 무대 조작 ----------
+var drag = null;
+function stagePt(e) {
+  var r = cv.getBoundingClientRect();
+  var ux = (e.clientX - r.left) / r.width, uy = (e.clientY - r.top) / r.height;
+  return { sx: ux * P.stage.w, sy: uy * P.stage.h, bx: ux * cv.width, by: uy * cv.height };
+}
+cv.addEventListener('pointerdown', function (e) {
+  if (S.mode === 'test') { if (eng) eng.trigger('click'); return; }
+  var pt = stagePt(e), part = selPart(), ep = editPose();
+  if (part && handlePos && !S.pivotEdit && Math.hypot(pt.bx - handlePos[0], pt.by - handlePos[1]) < 16 * dpr) {
+    var M = CP.mul(viewM(), ep.W[part.id]);
+    var pv = CP.apply(M, part.pivot.x, part.pivot.y);
+    drag = { kind: 'rot', part: part, cx: pv[0], cy: pv[1], a0: Math.atan2(pt.by - pv[1], pt.bx - pv[0]), v0: uiVal(part, 'rot'), tag: 'rot' + Date.now() };
+  } else if (part && S.pivotEdit) {
+    drag = { kind: 'pivot', part: part, tag: 'pv' + Date.now() };
+    movePivot(part, pt);
+  } else {
+    var hit = hitTest(pt.sx, pt.sy, ep.fp, ep.W);
+    if (!hit) return;
+    if (hit !== S.sel) { S.sel = hit; S.selKey = null; renderParts(); renderInspector(); renderTimeline(); }
+    part = selPart();
+    var Wp = part.parent ? ep.W[part.parent] : [1, 0, 0, 1, 0, 0];
+    var iv = CP.inv(Wp);
+    drag = { kind: 'move', part: part, iv: iv, s0: pt, x0: uiVal(part, 'x'), y0: uiVal(part, 'y'), tag: 'mv' + Date.now(), moved: false };
+  }
+  cv.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  drawStage();
+});
+cv.addEventListener('pointermove', function (e) {
+  if (S.mode === 'test' || !drag) return;
+  var pt = stagePt(e), part = drag.part;
+  if (drag.kind === 'move') {
+    var dx = pt.sx - drag.s0.sx, dy = pt.sy - drag.s0.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 1.5) return;
+    if (!drag.moved) { pushUndo(drag.tag); drag.moved = true; }
+    var px = drag.iv[0] * dx + drag.iv[2] * dy, py = drag.iv[1] * dx + drag.iv[3] * dy;
+    setVal(part, 'x', r2(drag.x0 + px));
+    setVal(part, 'y', r2(drag.y0 + py));
+  } else if (drag.kind === 'rot') {
+    pushUndo(drag.tag);
+    var a = Math.atan2(pt.by - drag.cy, pt.bx - drag.cx);
+    var d = (a - drag.a0) * 180 / Math.PI;
+    if (d > 180) d -= 360; if (d < -180) d += 360;
+    var nv = drag.v0 + d;
+    nv = e.shiftKey ? Math.round(nv / 15) * 15 : Math.round(nv * 10) / 10;
+    setVal(part, 'rot', nv);
+  } else if (drag.kind === 'pivot') {
+    movePivot(part, pt);
+  }
+  refreshLight();
+});
+function endDrag() { if (drag) { drag = null; refreshLight(); renderInspector(); } }
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerenter', function () { if (S.mode === 'test' && eng) eng.trigger('hover'); });
+function movePivot(part, pt) {
+  pushUndo(drag ? drag.tag : 'pv');
+  var W = restWorld();
+  var q = CP.apply(CP.inv(W[part.id]), pt.sx, pt.sy);
+  q = [Math.round(q[0]), Math.round(q[1])];
+  var L = CP.localM(part.rest, part.pivot);
+  var np = CP.apply(L, q[0], q[1]);
+  part.pivot = { x: q[0], y: q[1] };
+  part.rest.x = r2(np[0]); part.rest.y = r2(np[1]);
+}
+
+// ---------- 파츠 목록 ----------
+function thumbSrc(part) { var v = part.images[part.rest.img] || part.images[0]; return v ? POOL[v.asset] || '' : ''; }
+var armed = {};
+function arm(key, btn) {
+  if (armed[key] && Date.now() - armed[key] < 3000) { armed[key] = 0; return true; }
+  armed[key] = Date.now();
+  btn.classList.add('armed');
+  if (btn.dataset.armText) btn.textContent = btn.dataset.armText;
+  setTimeout(function () { if (btn.isConnected) { btn.classList.remove('armed'); if (btn.dataset.text) btn.textContent = btn.dataset.text; } armed[key] = 0; }, 3000);
+  return false;
+}
+function renderParts() {
+  var ul = $('partList');
+  var html = '';
+  var list = P.parts.slice().reverse();
+  list.forEach(function (part) {
+    var idx = P.parts.indexOf(part);
+    var par = part.parent ? CP.findPart(P, part.parent) : null;
+    var hid = !!S.hiddenParts[part.id];
+    html += '<li class="part' + (part.id === S.sel ? ' sel' : '') + (hid ? ' off' : '') + '" data-pid="' + esc(part.id) + '" style="margin-left:' + (depth(part) * 8) + 'px">' +
+      '<img class="thumb" alt="" src="' + esc(thumbSrc(part)) + '">' +
+      '<div class="pname"><b>' + esc(part.name) + '</b><span>' + (par ? esc(par.name) + '에 연결' : '단독') + (part.images.length > 1 ? ' · 그림 ' + part.images.length + '장' : '') + '</span></div>' +
+      '<div class="pbtns">' +
+      '<button class="ibtn" data-act="vis" aria-label="' + (hid ? '보이기' : '편집 중 숨기기') + '" title="' + (hid ? '보이기' : '편집 중 숨기기 (사이트에는 영향 없음)') + '">' + (hid ? ICON.eyeOff : ICON.eye) + '</button>' +
+      '<button class="ibtn" data-act="front" aria-label="앞으로" title="앞으로"' + (idx === P.parts.length - 1 ? ' disabled' : '') + '>' + ICON.up + '</button>' +
+      '<button class="ibtn" data-act="back" aria-label="뒤로" title="뒤로"' + (idx === 0 ? ' disabled' : '') + '>' + ICON.down + '</button>' +
+      '<button class="ibtn" data-act="del" aria-label="파츠 삭제" title="삭제 (한 번 더 누르면 삭제)">' + ICON.trash + '</button>' +
+      '</div></li>';
+  });
+  ul.innerHTML = html || '<li class="hint" style="padding:8px">파츠가 없어요. 위의 + 파츠 추가로 PNG를 올려주세요.</li>';
+}
+$('partList').addEventListener('click', function (e) {
+  var li = e.target.closest('.part');
+  if (!li) return;
+  var pid = li.dataset.pid, part = CP.findPart(P, pid);
+  var btn = e.target.closest('button[data-act]');
+  if (!btn) { S.sel = pid; S.selKey = null; renderAll(); return; }
+  var act = btn.dataset.act, idx = P.parts.indexOf(part);
+  if (act === 'vis') { S.hiddenParts[pid] = !S.hiddenParts[pid]; renderParts(); drawStage(); return; }
+  if (act === 'front' && idx < P.parts.length - 1) { pushUndo(); P.parts.splice(idx, 1); P.parts.splice(idx + 1, 0, part); changed(); return; }
+  if (act === 'back' && idx > 0) { pushUndo(); P.parts.splice(idx, 1); P.parts.splice(idx - 1, 0, part); changed(); return; }
+  if (act === 'del') {
+    if (!arm('del' + pid, btn)) { toast('한 번 더 누르면 "' + part.name + '" 파츠를 삭제해요'); return; }
+    pushUndo();
+    P.parts.forEach(function (ch) { if (ch.parent === pid) setParent(ch, part.parent); });
+    P.parts.splice(P.parts.indexOf(part), 1);
+    P.clips.forEach(function (c) { if (c.tracks) delete c.tracks[pid]; });
+    if (S.sel === pid) S.sel = null;
+    S.selKey = null;
+    fixSelection(); changed(); toast('파츠를 삭제했어요');
+  }
+});
+
+function readImage(file) {
+  return new Promise(function (res) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var src = fr.result, im = new Image();
+      im.onload = function () { res({ name: file.name.replace(/\.[^.]+$/, ''), src: src, w: im.naturalWidth || 200, h: im.naturalHeight || 200 }); };
+      im.onerror = function () { res(null); };
+      im.src = src;
+    };
+    fr.onerror = function () { res(null); };
+    fr.readAsDataURL(file);
+  });
+}
+$('fParts').addEventListener('change', function (e) {
+  var files = Array.prototype.slice.call(e.target.files || []);
+  e.target.value = '';
+  if (!files.length) return;
+  Promise.all(files.map(readImage)).then(function (items) {
+    var ok = items.filter(Boolean);
+    if (!ok.length) { toast('그림을 읽지 못했어요. PNG, WEBP, JPG, SVG 파일인지 확인해 주세요'); return; }
+    pushUndo();
+    var maxDim = Math.max.apply(null, ok.map(function (i) { return Math.max(i.w, i.h); }));
+    var lim = Math.min(P.stage.w, P.stage.h) * 0.9;
+    var s = maxDim > lim ? lim / maxDim : 1;
+    var first = null;
+    ok.forEach(function (it) {
+      var aid = uid('a_');
+      POOL[aid] = it.src;
+      var part = { id: uid('p_'), name: it.name, parent: null, pivot: { x: Math.round(it.w / 2), y: Math.round(it.h / 2) },
+        rest: { x: P.stage.w / 2, y: P.stage.h / 2, rot: 0, sx: s, sy: s, op: 1, img: 0 },
+        images: [{ name: it.name, asset: aid, w: it.w, h: it.h }], follow: { on: false, max: 6 } };
+      P.parts.push(part);
+      first = first || part.id;
+    });
+    S.sel = first; S.selKey = null;
+    changed();
+    toast('파츠 ' + ok.length + '개를 추가했어요');
+  });
+});
+
+// 그림 추가·교체
+var varTarget = null;
+$('fVar').addEventListener('change', function (e) {
+  var file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file || !varTarget) return;
+  var tgt = varTarget; varTarget = null;
+  readImage(file).then(function (it) {
+    if (!it) { toast('그림을 읽지 못했어요'); return; }
+    var part = CP.findPart(P, tgt.pid);
+    if (!part) return;
+    pushUndo();
+    var aid = uid('a_');
+    POOL[aid] = it.src;
+    if (tgt.idx === 'new') {
+      part.images.push({ name: it.name, asset: aid, w: it.w, h: it.h });
+      toast('그림을 추가했어요. 동작에서 "그림" 키로 바꿔치기할 수 있어요');
+    } else {
+      var v = part.images[tgt.idx];
+      if (tgt.idx === 0 && (v.w !== it.w || v.h !== it.h)) rescaleImageSpace(part, it.w / v.w, it.h / v.h);
+      v.asset = aid; v.w = it.w; v.h = it.h;
+      toast('그림을 바꿨어요. 위치와 크기, 동작은 그대로예요');
+    }
+    delete alphaCache[aid];
+    changed();
+  });
+});
+// 그림 크기가 바뀌어도 화면에 보이는 크기와 연결된 파츠 위치를 유지
+function rescaleImageSpace(part, rx, ry) {
+  part.pivot.x *= rx; part.pivot.y *= ry;
+  part.rest.sx /= rx; part.rest.sy /= ry;
+  P.parts.forEach(function (ch) {
+    if (ch.parent !== part.id) return;
+    ch.rest.x *= rx; ch.rest.y *= ry; ch.rest.sx *= rx; ch.rest.sy *= ry;
+    P.clips.forEach(function (c) {
+      var tr = c.tracks && c.tracks[ch.id];
+      if (!tr) return;
+      (tr.x || []).forEach(function (k) { k.v *= rx; });
+      (tr.y || []).forEach(function (k) { k.v *= ry; });
+    });
+  });
+}
+
+// ---------- 속성 패널 ----------
+function rng(prop) {
+  if (prop === 'x' || prop === 'y') return curClip() ? [-200, 200, 0.5] : [0, prop === 'x' ? P.stage.w : P.stage.h, 0.5];
+  if (prop === 'rot') return [-180, 180, 0.5];
+  if (prop === 'op') return [0, 100, 1];
+  return [0, 300, 1];
+}
+function renderInspector() {
+  var box = $('tab-props');
+  var part = selPart(), c = curClip();
+  if (!part) { box.innerHTML = '<div class="sec"><p class="hint">왼쪽에서 파츠를 고르거나, 무대에서 파츠를 클릭하세요.</p></div>'; return; }
+  var lbl = c ? LBL.clip : LBL.rest;
+  var h = '<div class="sec"><input class="name-input" id="iName" aria-label="파츠 이름" value="' + esc(part.name) + '">' +
+    '<div class="ctx-note">' + (c ? '<b>' + esc(c.name) + '</b> 동작의 <span class="num" id="iTime">' + S.t.toFixed(2) + '</span>초 지점. 값을 바꾸면 그 시점에 키가 찍혀요.'
+      : '<b>기본 자세</b>를 편집 중이에요. 모든 동작은 이 자세에서 출발해요.') + '</div></div>';
+  h += '<div class="sec"><h3>' + (c ? '움직임 값' : '기본 자세 값') + '</h3>';
+  PROPS.forEach(function (p) {
+    var r = rng(p);
+    h += '<div class="prow"><label for="n_' + p + '">' + lbl[p] + '</label>' +
+      '<input type="range" id="r_' + p + '" min="' + r[0] + '" max="' + r[1] + '" step="' + r[2] + '" aria-label="' + lbl[p] + '">' +
+      '<input type="number" id="n_' + p + '" step="' + r[2] + '">' +
+      '<span class="unit">' + UNIT[p] + '</span>' +
+      (c ? '<button class="kbtn" id="k_' + p + '" aria-label="' + lbl[p] + ' 키 찍기/지우기" title="키 찍기/지우기"><i></i></button>' : '<span></span>') + '</div>';
+  });
+  h += '<div class="prow img"><label for="sel_img">그림</label><select id="sel_img">' +
+    part.images.map(function (v, i) { return '<option value="' + i + '">' + esc(v.name || ('그림 ' + (i + 1))) + '</option>'; }).join('') + '</select>' +
+    (c ? '<button class="kbtn" id="k_img" aria-label="그림 키 찍기/지우기" title="키 찍기/지우기"><i></i></button>' : '<span></span>') + '</div>';
+  if (c) {
+    h += '<div class="inline"><button class="btn sm" id="bKeyAll">이 시점에 전체 값 키 찍기</button></div>';
+    h += '<p class="hint">크기·투명도는 기본 자세 대비 %예요. 100%면 변화 없음.</p>';
+  }
+  h += '</div>';
+
+  var key = findSelKey();
+  if (c && key) {
+    var sk = S.selKey, isImg = sk.prop === 'img', kp = CP.findPart(P, sk.pid);
+    h += '<div class="sec"><div class="keybox"><h3>선택한 키 · ' + esc(kp ? kp.name : '') + ' · ' + TL_LBL[sk.prop] + '</h3>' +
+      '<div class="field"><label for="kT">시간</label><div class="inline"><input type="number" id="kT" step="0.01" min="0" max="' + c.dur + '" value="' + key.t.toFixed(2) + '" style="width:90px"><span class="unit">초</span></div></div>';
+    if (isImg) {
+      h += '<div class="field"><label for="kImg">바꿀 그림</label><select id="kImg">' + (kp ? kp.images.map(function (v, i) { return '<option value="' + i + '"' + (i === key.v ? ' selected' : '') + '>' + esc(v.name || ('그림 ' + (i + 1))) + '</option>'; }).join('') : '') + '</select></div>' +
+        '<div class="field"><label for="kF">바뀌는 시간</label><div class="inline"><input type="number" id="kF" step="0.01" min="0" max="5" value="' + (key.f || 0).toFixed(2) + '" style="width:90px"><span class="unit">초 (0이면 즉시)</span></div></div>';
+    } else {
+      var kv = PCT[sk.prop] ? key.v * 100 : key.v;
+      h += '<div class="field"><label for="kV">값</label><div class="inline"><input type="number" id="kV" step="0.5" value="' + r2(kv) + '" style="width:90px"><span class="unit">' + UNIT[sk.prop] + '</span></div></div>' +
+        '<div class="field"><label for="kE">다음 키까지</label><select id="kE">' + EASES.map(function (e) { return '<option value="' + e[0] + '"' + (key.e === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join('') + '</select></div>';
+    }
+    h += '<div class="inline"><button class="btn sm danger" id="kDel">키 삭제</button><span class="hint">Delete 키로도 지울 수 있어요</span></div></div></div>';
+  }
+
+  // 파츠 설정
+  var opts = '<option value="">없음 (단독)</option>' + P.parts.filter(function (o) { return o.id !== part.id && !isDescendant(o.id, part.id); })
+    .map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === part.parent ? ' selected' : '') + '>' + esc(o.name) + '</option>'; }).join('');
+  h += '<div class="sec"><h3>파츠 설정</h3>' +
+    '<div class="field"><label for="iParent">연결할 부모</label><select id="iParent">' + opts + '</select></div>' +
+    '<p class="hint">부모에 연결하면 부모가 움직일 때 같이 따라가요. 예: 팔을 몸통에 연결.</p>' +
+    '<div class="field"><span>회전 기준점</span><div class="inline">' +
+    '<button class="btn sm' + (S.pivotEdit ? ' primary' : '') + '" id="bPivot"' + (c ? ' disabled' : '') + '>' + (S.pivotEdit ? '기준점 옮기기 끝내기' : '기준점 옮기기') + '</button>' +
+    '<span class="num unit">' + Math.round(part.pivot.x) + ', ' + Math.round(part.pivot.y) + '</span></div></div>' +
+    (c ? '<p class="hint">기준점은 기본 자세에서만 옮길 수 있어요.</p>' : '<p class="hint">팔은 어깨, 몸통은 발밑처럼 회전·늘어남의 중심이 될 곳에 두세요.</p>') +
+    '<div class="field"><span>마우스 따라가기</span><div class="inline"><label class="check"><input type="checkbox" id="iFollow"' + (part.follow.on ? ' checked' : '') + '> 켜기</label>' +
+    '<input type="number" id="iFollowMax" min="0" max="80" step="1" value="' + (part.follow.max || 0) + '" style="width:64px" aria-label="최대 이동 거리"><span class="unit">px까지</span></div></div>' +
+    '<p class="hint">눈동자처럼 마우스 쪽으로 살짝 움직일 파츠에 켜세요.</p></div>';
+
+  h += '<div class="sec"><h3>그림 목록</h3><p class="hint">한 파츠에 그림을 여러 장 넣으면 동작 중에 바꿔치기할 수 있어요. 임시 그림은 교체를 눌러 진짜 파츠로 바꾸세요.</p>';
+  part.images.forEach(function (v, i) {
+    h += '<div class="var"><img class="thumb" alt="" src="' + esc(POOL[v.asset] || '') + '">' +
+      '<input data-vi="' + i + '" class="vname" value="' + esc(v.name || '') + '" aria-label="그림 이름">' +
+      '<div class="inline"><button class="btn sm" data-vrep="' + i + '">교체</button>' +
+      (part.images.length > 1 ? '<button class="ibtn" data-vdel="' + i + '" aria-label="그림 삭제" title="그림 삭제">' + ICON.trash + '</button>' : '') + '</div></div>';
+  });
+  h += '<div class="inline"><button class="btn sm" id="bAddVar">+ 그림 추가 (바꿔치기용)</button></div></div>';
+
+  box.innerHTML = h;
+  bindInspector(part);
+  updateInspectorValues();
+}
+function bindInspector(part) {
+  var c = curClip();
+  $('iName').addEventListener('change', function (e) { pushUndo(); part.name = e.target.value.trim() || '파츠'; renderParts(); renderTimeline(); scheduleSave(); });
+  PROPS.forEach(function (p) {
+    $('r_' + p).addEventListener('input', function (e) { pushUndo('r_' + p + part.id); setVal(part, p, +e.target.value); refreshLight(); });
+    $('n_' + p).addEventListener('change', function (e) { var v = parseFloat(e.target.value); if (!isFinite(v)) { updateInspectorValues(); return; } pushUndo(); setVal(part, p, v); refreshLight(); });
+    var kb = $('k_' + p);
+    if (kb) kb.addEventListener('click', function () {
+      pushUndo();
+      var keys = track(c, part.id, p, false);
+      if (keyIndex(keys, S.t) >= 0) { delKey(c, part.id, p, S.t); S.selKey = null; }
+      else { setVal(part, p, uiVal(part, p)); S.selKey = { pid: part.id, prop: p, t: r2(S.t) }; }
+      refreshLight(); renderInspector();
+    });
+  });
+  $('sel_img').addEventListener('change', function (e) {
+    pushUndo();
+    var v = +e.target.value;
+    if (!c) part.rest.img = v; else setKey(c, part.id, 'img', S.t, v);
+    refreshLight(); renderParts();
+  });
+  var ki = $('k_img');
+  if (ki) ki.addEventListener('click', function () {
+    pushUndo();
+    var keys = track(c, part.id, 'img', false);
+    if (keyIndex(keys, S.t) >= 0) { delKey(c, part.id, 'img', S.t); S.selKey = null; }
+    else { setKey(c, part.id, 'img', S.t, imgVal(part)); S.selKey = { pid: part.id, prop: 'img', t: r2(S.t) }; }
+    refreshLight(); renderInspector();
+  });
+  var ka = $('bKeyAll');
+  if (ka) ka.addEventListener('click', function () {
+    pushUndo();
+    var off = curOffsets();
+    PROPS.forEach(function (p) { setVal(part, p, uiVal(part, p, off)); });
+    refreshLight(); toast(part.name + '의 현재 값을 모두 키로 찍었어요');
+  });
+  // 선택한 키
+  var key = findSelKey();
+  if (key) {
+    var sk = S.selKey;
+    $('kT').addEventListener('change', function (e) {
+      var nt = clamp(r2(parseFloat(e.target.value) || 0), 0, c.dur);
+      var keys = track(c, sk.pid, sk.prop, false);
+      var j = keyIndex(keys, nt);
+      if (j >= 0 && keys[j] !== key) { toast('그 시간에는 이미 키가 있어요'); renderInspector(); return; }
+      pushUndo(); key.t = nt; keys.sort(function (a, b) { return a.t - b.t; }); sk.t = nt; S.t = nt;
+      refreshLight(); renderInspector();
+    });
+    if ($('kV')) $('kV').addEventListener('change', function (e) { var v = parseFloat(e.target.value); if (!isFinite(v)) return; pushUndo(); key.v = PCT[sk.prop] ? v / 100 : v; refreshLight(); });
+    if ($('kE')) $('kE').addEventListener('change', function (e) { pushUndo(); key.e = e.target.value; refreshLight(); });
+    if ($('kImg')) $('kImg').addEventListener('change', function (e) { pushUndo(); key.v = +e.target.value; refreshLight(); });
+    if ($('kF')) $('kF').addEventListener('change', function (e) { pushUndo(); key.f = clamp(parseFloat(e.target.value) || 0, 0, 5); refreshLight(); });
+    $('kDel').addEventListener('click', deleteSelKey);
+  }
+  $('iParent').addEventListener('change', function (e) {
+    pushUndo(); setParent(part, e.target.value || null); changed();
+    toast(e.target.value ? '연결했어요. 보이는 위치는 그대로예요' : '연결을 풀었어요');
+  });
+  $('bPivot').addEventListener('click', function () { S.pivotEdit = !S.pivotEdit; renderInspector(); updateHints(); drawStage(); });
+  $('iFollow').addEventListener('change', function (e) { pushUndo(); part.follow.on = e.target.checked; scheduleSave(); });
+  $('iFollowMax').addEventListener('change', function (e) { pushUndo(); part.follow.max = clamp(parseFloat(e.target.value) || 0, 0, 80); scheduleSave(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.vname'), function (inp) {
+    inp.addEventListener('change', function () { pushUndo(); part.images[+inp.dataset.vi].name = inp.value.trim(); renderInspector(); scheduleSave(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-vrep]'), function (b) {
+    b.addEventListener('click', function () { varTarget = { pid: part.id, idx: +b.dataset.vrep }; $('fVar').click(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-vdel]'), function (b) {
+    b.addEventListener('click', function () {
+      var i = +b.dataset.vdel;
+      if (!arm('vdel' + part.id + i, b)) { toast('한 번 더 누르면 이 그림을 삭제해요'); return; }
+      pushUndo();
+      part.images.splice(i, 1);
+      var fix = function (v) { return v === i ? 0 : (v > i ? v - 1 : v); };
+      part.rest.img = fix(part.rest.img || 0);
+      P.clips.forEach(function (cl) { var tr = cl.tracks && cl.tracks[part.id]; if (tr && tr.img) tr.img.forEach(function (k) { k.v = fix(k.v); }); });
+      changed();
+    });
+  });
+  $('bAddVar').addEventListener('click', function () { varTarget = { pid: part.id, idx: 'new' }; $('fVar').click(); });
+}
+function updateInspectorValues() {
+  var part = selPart();
+  if (!part || !$('r_x')) return;
+  var c = curClip(), off = curOffsets();
+  PROPS.forEach(function (p) {
+    var v = uiVal(part, p, off);
+    var r = $('r_' + p), n = $('n_' + p);
+    if (document.activeElement !== r) r.value = v;
+    if (document.activeElement !== n) n.value = r2(v);
+    var kb = $('k_' + p);
+    if (kb) kb.classList.toggle('on', keyIndex(track(c, part.id, p, false), S.t) >= 0);
+  });
+  var si = $('sel_img');
+  if (si && document.activeElement !== si) si.value = String(imgVal(part, off));
+  var ki = $('k_img');
+  if (ki) ki.classList.toggle('on', keyIndex(track(c, part.id, 'img', false), S.t) >= 0);
+  var it = $('iTime');
+  if (it) it.textContent = S.t.toFixed(2);
+}
+function deleteSelKey() {
+  var c = curClip(), sk = S.selKey;
+  if (!c || !sk || !findSelKey()) return;
+  pushUndo();
+  delKey(c, sk.pid, sk.prop, sk.t);
+  S.selKey = null;
+  refreshLight(); renderInspector();
+}
+
+// ---------- 타임라인 ----------
+function syncClipBar() {
+  var c = curClip();
+  $('clipSel').innerHTML = '<option value="rest">기본 자세 (움직임 없음)</option>' +
+    P.clips.map(function (cl) { return '<option value="' + esc(cl.id) + '">' + esc(cl.name) + (cl.loop ? ' · 반복' : '') + '</option>'; }).join('');
+  $('clipSel').value = S.clip;
+  ['clipName', 'clipDur', 'clipLoop', 'bPlay', 'bRewind', 'bDupClip', 'bDelClip'].forEach(function (id) { $(id).disabled = !c || S.mode === 'test'; });
+  $('bNewClip').disabled = S.mode === 'test';
+  $('clipSel').disabled = S.mode === 'test';
+  if (document.activeElement !== $('clipName')) $('clipName').value = c ? c.name : '';
+  if (document.activeElement !== $('clipDur')) $('clipDur').value = c ? c.dur : '';
+  $('clipLoop').checked = c ? !!c.loop : false;
+  $('bPlay').textContent = S.playing ? '일시정지' : '재생';
+  $('timeline').classList.toggle('locked', S.mode === 'test');
+  updateTimeText();
+}
+function updateTimeText() {
+  var c = curClip();
+  $('tlTime').textContent = c ? S.t.toFixed(2) + ' / ' + c.dur.toFixed(2) + '초' : '';
+}
+function keyTimes(c, pid) {
+  var tr = c.tracks && c.tracks[pid], out = {};
+  if (!tr) return [];
+  for (var p in tr) tr[p].forEach(function (k) { out[k.t.toFixed(2)] = k.t; });
+  return Object.keys(out).map(function (k) { return out[k]; });
+}
+function renderTimeline() {
+  syncClipBar();
+  var c = curClip(), tl = $('tl');
+  if (!c) {
+    tl.innerHTML = '<div class="tl-empty">기본 자세에는 시간이 없어요. 위의 동작 목록에서 동작을 고르거나 <b>새 동작</b>을 만들어 키프레임을 찍어보세요.</div>';
+    return;
+  }
+  var d = c.dur || 1;
+  var tw = Math.max(200, ($('tlScroll').clientWidth || 600) - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lab') || 148));
+  var steps = [0.05, 0.1, 0.25, 0.5, 1, 2, 5], step = 5;
+  for (var i = 0; i < steps.length; i++) { if (tw / (d / steps[i]) >= 54) { step = steps[i]; break; } }
+  var pct = function (t) { return (t / d * 100).toFixed(3) + '%'; };
+  var h = '<div class="tl-row ruler"><div class="tl-label" style="cursor:default;color:var(--muted)">시간 (초)</div><div class="track" data-scrub="1">';
+  for (var t = 0, n = 0; t <= d + 1e-6 && n < 400; t = Math.round((t + step / 2) * 1000) / 1000, n++) {
+    var major = Math.abs(Math.round(t / step) * step - t) < 1e-4;
+    h += '<div class="tick' + (major ? ' major' : '') + '" style="left:' + pct(t) + '">' + (major ? '<span>' + (+t.toFixed(2)) + '</span>' : '') + '</div>';
+  }
+  h += '</div></div>';
+  P.parts.slice().reverse().forEach(function (part) {
+    var sel = part.id === S.sel;
+    h += '<div class="tl-row part' + (sel ? ' sel' : '') + '"><div class="tl-label" data-pid="' + esc(part.id) + '">' + esc(part.name) + '</div><div class="track" data-scrub="1" data-pid="' + esc(part.id) + '">';
+    keyTimes(c, part.id).forEach(function (kt) { h += '<span class="dot" style="left:' + pct(kt) + '"></span>'; });
+    h += '</div></div>';
+    if (!sel) return;
+    PROPS.concat(['img']).forEach(function (p) {
+      var keys = track(c, part.id, p, false) || [];
+      h += '<div class="tl-row prop"><div class="tl-label">' + TL_LBL[p] + '</div><div class="track" data-scrub="1">';
+      keys.forEach(function (k, ki) {
+        var isSel = S.selKey && S.selKey.pid === part.id && S.selKey.prop === p && Math.abs(S.selKey.t - k.t) < EPS;
+        if (p === 'img' && k.f > 0) h += '<span class="fade" style="left:' + pct(k.t) + ';width:' + (Math.min(k.f, d - k.t) / d * 100).toFixed(3) + '%"></span>';
+        h += '<span class="kf' + (p === 'img' ? ' img' : '') + (k.e === 'step' ? ' step' : '') + (isSel ? ' sel' : '') + '" data-pid="' + esc(part.id) + '" data-prop="' + p + '" data-ki="' + ki + '" style="left:' + pct(k.t) + '" title="' + k.t.toFixed(2) + '초"></span>';
+      });
+      h += '</div></div>';
+    });
+  });
+  h += '<div id="phLayer"><div id="playhead" style="left:' + pct(S.t) + '"></div></div>';
+  tl.innerHTML = h;
+}
+function updatePlayhead() {
+  var c = curClip(), ph = $('playhead');
+  if (c && ph) ph.style.left = (S.t / (c.dur || 1) * 100).toFixed(3) + '%';
+  updateTimeText();
+}
+var tlDrag = null;
+$('tl').addEventListener('pointerdown', function (e) {
+  if (S.mode === 'test') return;
+  var c = curClip();
+  if (!c) return;
+  var kf = e.target.closest('.kf');
+  var trackEl = e.target.closest('.track');
+  var lab = e.target.closest('.tl-label[data-pid]');
+  if (lab) { S.sel = lab.dataset.pid; S.selKey = null; S.pivotEdit = false; renderAll(); return; }
+  if (!trackEl) return;
+  var rect = trackEl.getBoundingClientRect();
+  if (kf) {
+    var keys = track(c, kf.dataset.pid, kf.dataset.prop, false);
+    var key = keys && keys[+kf.dataset.ki];
+    if (!key) return;
+    if (S.sel !== kf.dataset.pid) S.sel = kf.dataset.pid;
+    S.selKey = { pid: kf.dataset.pid, prop: kf.dataset.prop, t: key.t };
+    S.t = key.t;
+    tlDrag = { kind: 'key', key: key, keys: keys, x0: e.clientX, t0: key.t, w: rect.width, moved: false, tag: 'kd' + Date.now() };
+    renderAll();
+  } else {
+    if (trackEl.dataset.pid && trackEl.dataset.pid !== S.sel) { S.sel = trackEl.dataset.pid; S.selKey = null; renderParts(); renderInspector(); }
+    tlDrag = { kind: 'scrub', rect: rect };
+    scrubTo(e.clientX, rect);
+  }
+  $('tl').setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+$('tl').addEventListener('pointermove', function (e) {
+  if (!tlDrag) return;
+  var c = curClip();
+  if (!c) return;
+  if (tlDrag.kind === 'scrub') { scrubTo(e.clientX, tlDrag.rect); return; }
+  var dx = e.clientX - tlDrag.x0;
+  if (!tlDrag.moved && Math.abs(dx) < 3) return;
+  if (!tlDrag.moved) { pushUndo(tlDrag.tag); tlDrag.moved = true; }
+  var nt = tlDrag.t0 + dx / tlDrag.w * c.dur;
+  nt = e.shiftKey ? Math.round(nt * 10) / 10 : r2(nt);
+  nt = clamp(nt, 0, c.dur);
+  var j = keyIndex(tlDrag.keys, nt);
+  if (j >= 0 && tlDrag.keys[j] !== tlDrag.key) return;
+  tlDrag.key.t = nt;
+  tlDrag.keys.sort(function (a, b) { return a.t - b.t; });
+  S.selKey.t = nt; S.t = nt;
+  drawStage(); renderTimeline(); updateInspectorValues();
+});
+function endTl() { if (tlDrag) { var wasKey = tlDrag.kind === 'key'; tlDrag = null; if (wasKey) { renderInspector(); scheduleSave(); } } }
+$('tl').addEventListener('pointerup', endTl);
+$('tl').addEventListener('pointercancel', endTl);
+function scrubTo(clientX, rect) {
+  var c = curClip();
+  if (!c) return;
+  var t = clamp((clientX - rect.left) / rect.width * c.dur, 0, c.dur);
+  S.t = r2(t);
+  if (S.playing) play(false);
+  drawStage(); updatePlayhead(); updateInspectorValues();
+}
+
+// 동작 관리
+$('clipSel').addEventListener('change', function (e) {
+  play(false);
+  S.clip = e.target.value; S.selKey = null; S.t = 0;
+  if (S.clip !== 'rest') S.pivotEdit = false;
+  renderAll();
+});
+$('clipName').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); c.name = e.target.value.trim() || '동작'; renderTimeline(); renderRules(); scheduleSave(); });
+$('clipDur').addEventListener('change', function (e) {
+  var c = curClip(); if (!c) return;
+  var v = clamp(r2(parseFloat(e.target.value) || c.dur), 0.1, 30);
+  pushUndo(); c.dur = v; S.t = Math.min(S.t, v); renderTimeline(); drawStage(); scheduleSave();
+});
+$('clipLoop').addEventListener('change', function (e) { var c = curClip(); if (!c) return; pushUndo(); c.loop = e.target.checked; renderTimeline(); scheduleSave(); });
+$('bNewClip').addEventListener('click', function () {
+  pushUndo();
+  var c = { id: uid('c_'), name: '새 동작 ' + (P.clips.length + 1), dur: 1, loop: false, tracks: {} };
+  P.clips.push(c); S.clip = c.id; S.t = 0; S.selKey = null; S.pivotEdit = false;
+  changed(); toast('새 동작을 만들었어요. 파츠를 움직이면 키가 찍혀요');
+  $('clipName').focus(); $('clipName').select();
+});
+$('bDupClip').addEventListener('click', function () {
+  var c = curClip(); if (!c) return;
+  pushUndo();
+  var d = JSON.parse(JSON.stringify(c)); d.id = uid('c_'); d.name = c.name + ' 복사본';
+  P.clips.splice(P.clips.indexOf(c) + 1, 0, d); S.clip = d.id; S.selKey = null;
+  changed(); toast('동작을 복제했어요');
+});
+$('bDelClip').addEventListener('click', function (e) {
+  var c = curClip(); if (!c) return;
+  var btn = e.currentTarget;
+  if (!arm('delclip' + c.id, btn)) { toast('한 번 더 누르면 "' + c.name + '" 동작을 삭제해요'); return; }
+  pushUndo();
+  P.clips.splice(P.clips.indexOf(c), 1);
+  P.rules.forEach(function (r) { if (r.clip === c.id) r.clip = ''; });
+  if (P.baseClip === c.id) P.baseClip = null;
+  S.clip = 'rest'; S.selKey = null; play(false);
+  changed(); toast('동작을 삭제했어요');
+});
+$('bPlay').addEventListener('click', function () { play(!S.playing); });
+$('bRewind').addEventListener('click', function () { S.t = 0; drawStage(); updatePlayhead(); updateInspectorValues(); });
+
+var rafPlay = 0, lastTs = 0;
+function play(on) {
+  S.playing = !!on && !!curClip();
+  cancelAnimationFrame(rafPlay);
+  if (S.playing) { lastTs = performance.now(); rafPlay = requestAnimationFrame(tick); }
+  $('bPlay').textContent = S.playing ? '일시정지' : '재생';
+}
+function tick(ts) {
+  var c = curClip();
+  if (!c || !S.playing) { play(false); return; }
+  S.t += (ts - lastTs) / 1000; lastTs = ts;
+  if (S.t > c.dur) S.t = c.dur > 0 ? S.t % c.dur : 0;
+  drawStage(); updatePlayhead(); updateInspectorValues();
+  rafPlay = requestAnimationFrame(tick);
+}
+
+// ---------- 반응 규칙 ----------
+function clipOptions(sel, allowNone) {
+  return (allowNone ? '<option value="">' + allowNone + '</option>' : '') +
+    P.clips.map(function (c) { return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('');
+}
+function hourOptions(sel) { var s = ''; for (var i = 0; i < 24; i++) s += '<option value="' + i + '"' + (+sel === i ? ' selected' : '') + '>' + i + '시</option>'; return s; }
+function renderRules() {
+  var box = $('tab-rules');
+  var h = '<div class="sec"><div class="field"><label for="baseSel">평소 동작</label><select id="baseSel">' + clipOptions(P.baseClip, '없음 (기본 자세로 정지)') + '</select></div>' +
+    '<p class="hint">아무 일도 없을 때 계속 반복되는 동작이에요.</p></div><div class="sec"><h3>규칙</h3>';
+  P.rules.forEach(function (r, i) {
+    var isState = r.event === 'idle' || r.event === 'time';
+    h += '<div class="rule" data-i="' + i + '"><div class="top">' +
+      '<select data-f="event" aria-label="언제">' + EVENTS.map(function (ev) { return '<option value="' + ev[0] + '"' + (ev[0] === r.event ? ' selected' : '') + '>' + ev[1] + '</option>'; }).join('') + '</select>' +
+      '<span class="arrow" aria-hidden="true">→</span>' +
+      '<select data-f="clip" aria-label="재생할 동작">' + clipOptions(r.clip, '동작 고르기') + '</select>' +
+      '<div class="inline" style="gap:0"><button class="ibtn" data-act="up" aria-label="위로 (먼저 적용)" title="위로 (먼저 적용)"' + (i === 0 ? ' disabled' : '') + '>' + ICON.up + '</button>' +
+      '<button class="ibtn" data-act="del" aria-label="규칙 삭제" title="삭제">' + ICON.trash + '</button></div></div><div class="params">';
+    if (r.event === 'random') h += '<input type="number" data-f="min" min="0.5" step="0.5" value="' + (r.min || 3) + '" aria-label="최소 초">초 ~ <input type="number" data-f="max" min="0.5" step="0.5" value="' + (r.max || 6) + '" aria-label="최대 초">초마다 한 번';
+    else if (r.event === 'idle') h += '<input type="number" data-f="sec" min="1" step="1" value="' + (r.sec || 30) + '" aria-label="초">초 동안 마우스·키보드 입력이 없으면';
+    else if (r.event === 'time') h += '<select data-f="from" aria-label="시작 시각">' + hourOptions(r.from) + '</select>부터 <select data-f="to" aria-label="끝 시각">' + hourOptions(r.to) + '</select>까지';
+    else h += '<label class="check"><input type="checkbox" data-f="interrupt"' + (r.interrupt ? ' checked' : '') + '> 재생 중에 또 일어나면 처음부터 다시</label>';
+    h += '<span class="tag' + (isState ? ' state' : '') + '">' + (isState ? '조건이 맞는 동안 반복' : '한 번 재생') + '</span></div></div>';
+  });
+  h += '<div class="inline"><button class="btn sm" id="bAddRule">+ 규칙 추가</button></div>' +
+    '<p class="hint">"한동안 가만히", "특정 시간대" 규칙은 조건이 맞는 동안 평소 동작 대신 반복되고, 위에 있는 규칙이 먼저 적용돼요. 나머지는 한 번 재생된 뒤 평소 동작으로 돌아가요. 한 번 재생 동작은 키를 찍은 부분만 덮어쓰기 때문에 숨쉬기 같은 평소 동작과 자연스럽게 섞여요.</p></div>';
+  box.innerHTML = h;
+  $('baseSel').addEventListener('change', function (e) { pushUndo(); P.baseClip = e.target.value || null; scheduleSave(); });
+  $('bAddRule').addEventListener('click', function () {
+    pushUndo();
+    P.rules.push({ id: uid('r_'), event: 'click', clip: P.clips[0] ? P.clips[0].id : '', interrupt: false });
+    renderRules(); scheduleSave();
+  });
+}
+$('tab-rules').addEventListener('change', function (e) {
+  var card = e.target.closest('.rule'); if (!card) return;
+  var r = P.rules[+card.dataset.i], f = e.target.dataset.f; if (!r || !f) return;
+  pushUndo();
+  if (f === 'interrupt') r.interrupt = e.target.checked;
+  else if (f === 'min' || f === 'max' || f === 'sec') r[f] = Math.max(0.5, parseFloat(e.target.value) || 1);
+  else if (f === 'from' || f === 'to') r[f] = +e.target.value;
+  else r[f] = e.target.value;
+  if (f === 'event') {
+    if (r.event === 'random') { r.min = r.min || 3; r.max = r.max || 6; }
+    if (r.event === 'idle') r.sec = r.sec || 30;
+    if (r.event === 'time') { r.from = r.from != null ? r.from : 23; r.to = r.to != null ? r.to : 6; }
+    renderRules();
+  }
+  scheduleSave();
+});
+$('tab-rules').addEventListener('click', function (e) {
+  var btn = e.target.closest('button[data-act]'); if (!btn) return;
+  var card = btn.closest('.rule'); var i = +card.dataset.i;
+  if (btn.dataset.act === 'up' && i > 0) { pushUndo(); var r = P.rules.splice(i, 1)[0]; P.rules.splice(i - 1, 0, r); renderRules(); scheduleSave(); }
+  if (btn.dataset.act === 'del') {
+    if (!arm('rdel' + P.rules[i].id, btn)) { toast('한 번 더 누르면 규칙을 삭제해요'); return; }
+    pushUndo(); P.rules.splice(i, 1); renderRules(); scheduleSave();
+  }
+});
+
+// ---------- 사이트 설정 ----------
+var SITE = 'https://iplaypiccolo.github.io/Charocharo/';
+var SNIPPET = '<script src="' + SITE + 'charo-pet.js" data-src="' + SITE + 'charo-pet.json" defer><\/script>';
+function renderSite() {
+  var d = P.display;
+  var h = '<div class="sec"><h3>화면에 보이는 모습</h3>' +
+    '<div class="field"><label for="sName">캐릭터 이름</label><input type="text" id="sName" value="' + esc(P.name) + '"></div>' +
+    '<div class="field"><label for="sSize">크기</label><div class="inline"><input type="number" id="sSize" min="60" max="320" step="10" value="' + d.size + '" style="width:80px"><span class="unit">px (정사각형)</span></div></div>' +
+    '<div class="field"><label for="sCorner">위치</label><select id="sCorner"><option value="right"' + (d.corner !== 'left' ? ' selected' : '') + '>오른쪽 아래</option><option value="left"' + (d.corner === 'left' ? ' selected' : '') + '>왼쪽 아래</option></select></div>' +
+    '<div class="field"><label for="sMargin">가장자리 여백</label><div class="inline"><input type="number" id="sMargin" min="0" max="120" step="2" value="' + d.margin + '" style="width:80px"><span class="unit">px</span></div></div>' +
+    '<label class="check"><input type="checkbox" id="sMobile"' + (d.hideOnMobile ? ' checked' : '') + '> 휴대폰처럼 좁은 화면에서는 숨기기</label>' +
+    '<label class="check"><input type="checkbox" id="sClose"' + (d.closable ? ' checked' : '') + '> 방문자가 숨길 수 있는 × 버튼 달기</label>' +
+    '<div class="preview-box' + (d.corner === 'left' ? ' left' : '') + '" aria-label="실제 크기 미리보기"><canvas id="sPrev" style="width:' + Math.min(d.size, 170) + 'px;height:' + Math.min(d.size, 170) + 'px"></canvas></div>' +
+    '<p class="hint">사이트 화면 구석에 이 크기로 떠 있어요' + (d.size > 170 ? ' (미리보기는 170px로 줄여서 보여줘요)' : '') + '.</p></div>';
+  h += '<div class="sec"><h3>사이트에 반영하는 방법</h3><ol class="steps">' +
+    '<li>위의 <b>저장 (.json)</b>으로 <span class="num">charo-pet.json</span> 받기</li>' +
+    '<li>GitHub의 Charocharo 저장소에서 같은 이름의 파일을 이 파일로 덮어쓰기 (Add file → Upload files)</li>' +
+    '<li>1~2분 뒤 사이트를 새로고침하면 반영돼요</li></ol>' +
+    '<h3 style="margin-top:6px">다른 사이트에 붙이기</h3>' +
+    '<p class="hint">제설 지원 사이트처럼 다른 페이지에 띄우려면 그 페이지의 <span class="num">&lt;/body&gt;</span> 바로 위에 아래 한 줄을 붙여 넣으세요. Charocharo 저장소의 파일을 바꾸면 붙인 사이트에도 자동으로 반영돼요.</p>' +
+    '<div class="code" id="snip">' + esc(SNIPPET) + '</div><div class="inline"><button class="btn sm" id="bCopySnip">코드 복사</button></div>' +
+    '<p class="hint">키보드 반응은 키가 눌렸다는 신호만 쓰고 입력한 글자는 읽지 않아요.</p></div>';
+  h += '<div class="sec"><h3>처음부터 다시</h3><p class="hint">지금 작업을 지우고 예시 캐릭터로 되돌려요. 되돌리기로 취소할 수 있어요.</p>' +
+    '<div class="inline"><button class="btn sm danger" id="bReset" data-text="예시로 초기화" data-arm-text="한 번 더 누르면 초기화">예시로 초기화</button></div></div>';
+  $('tab-site').innerHTML = h;
+  var upd = function (fn) { return function (e) { pushUndo(); fn(e); scheduleSave(); renderSite(); }; };
+  $('sName').addEventListener('change', upd(function (e) { P.name = e.target.value.trim() || '캐릭터'; }));
+  $('sSize').addEventListener('change', upd(function (e) { d.size = clamp(parseInt(e.target.value, 10) || 140, 60, 320); }));
+  $('sCorner').addEventListener('change', upd(function (e) { d.corner = e.target.value; }));
+  $('sMargin').addEventListener('change', upd(function (e) { d.margin = clamp(parseInt(e.target.value, 10) || 0, 0, 120); }));
+  $('sMobile').addEventListener('change', upd(function (e) { d.hideOnMobile = e.target.checked; }));
+  $('sClose').addEventListener('change', upd(function (e) { d.closable = e.target.checked; }));
+  $('bCopySnip').addEventListener('click', function () { copyText(SNIPPET, $('snip')); });
+  $('bReset').addEventListener('click', function (e) {
+    if (!arm('reset', e.currentTarget)) return;
+    pushUndo(); var ex = normalize(makeExample()); P = ex; S.sel = 'armL'; S.clip = 'c_jump'; S.t = 0.45; S.selKey = null; S.hiddenParts = {};
+    changed(); toast('예시 캐릭터로 초기화했어요');
+  });
+  drawSitePreview();
+}
+function drawSitePreview() {
+  var c = $('sPrev'); if (!c) return;
+  var size = Math.min(P.display.size, 170), r = Math.min(3, window.devicePixelRatio || 1);
+  c.width = Math.round(size * r); c.height = Math.round(size * r);
+  var x = c.getContext('2d');
+  var sc = c.width / Math.max(P.stage.w, P.stage.h);
+  var fp = CP.finalPose(P, CP.offsetsFrom(P, {}), null);
+  x.clearRect(0, 0, c.width, c.height);
+  CP.render(x, P, fp, CP.worldMatrices(P, fp), [sc, 0, 0, sc, 0, 0]);
+}
+
+// ---------- 반응 테스트 ----------
+var eng = null, rafTest = 0, fol = { x: 0, y: 0 }, folT = { x: 0, y: 0 };
+(function () { var s = '<option value="">지금 시각</option>'; for (var i = 0; i < 24; i++) s += '<option value="' + i + '">' + i + '시로 가정</option>'; $('tHour').innerHTML = s; })();
+function setMode(m) {
+  if (m === S.mode) return;
+  S.mode = m;
+  $('mEdit').setAttribute('aria-pressed', m === 'edit');
+  $('mTest').setAttribute('aria-pressed', m === 'test');
+  $('testBar').hidden = m !== 'test';
+  cancelAnimationFrame(rafTest);
+  if (m === 'test') {
+    play(false); S.pivotEdit = false;
+    eng = new CP.Engine(P);
+    eng.hour = $('tHour').value === '' ? null : +$('tHour').value;
+    CP.preload(P).then(function () { if (S.mode === 'test') rafTest = requestAnimationFrame(testTick); });
+  } else { eng = null; drawStage(); }
+  renderTimeline(); renderInspector(); updateHints();
+}
+var lastStatus = '';
+function testTick(ts) {
+  if (S.mode !== 'test' || !eng) return;
+  eng.p = P;
+  var off = eng.update(ts);
+  fol.x += (folT.x - fol.x) * 0.12; fol.y += (folT.y - fol.y) * 0.12;
+  var fp = CP.finalPose(P, off, fol);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  CP.render(ctx, P, fp, CP.worldMatrices(P, fp), viewM());
+  var lc = CP.findClip(P, eng.layer), oc = eng.one && CP.findClip(P, eng.one.id);
+  var st = (lc ? lc.name : '기본 자세') + '|' + (oc ? oc.name : '');
+  if (st !== lastStatus) {
+    lastStatus = st;
+    $('tsLayer').textContent = '반복 중: ' + (lc ? lc.name : '기본 자세');
+    $('tsOne').textContent = oc ? '한 번 재생: ' + oc.name : '한 번 재생: 없음';
+  }
+  rafTest = requestAnimationFrame(testTick);
+}
+document.addEventListener('pointermove', function (e) {
+  if (S.mode !== 'test' || !eng) return;
+  eng.input();
+  var r = cv.getBoundingClientRect();
+  var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  var len = Math.hypot(dx, dy);
+  if (len < 1) { folT.x = 0; folT.y = 0; return; }
+  var k = Math.min(1, len / (r.width * 0.8));
+  folT.x = dx / len * k; folT.y = dy / len * k;
+}, { passive: true });
+$('mEdit').addEventListener('click', function () { setMode('edit'); });
+$('mTest').addEventListener('click', function () { setMode('test'); });
+$('tType').addEventListener('click', function () { if (eng) eng.trigger('type'); });
+$('tIdle').addEventListener('click', function () {
+  if (!eng) return;
+  var mx = 0; P.rules.forEach(function (r) { if (r.event === 'idle') mx = Math.max(mx, +r.sec || 30); });
+  if (!mx) { toast('"한동안 가만히" 규칙이 없어요'); return; }
+  eng.skipIdle(mx + 1); toast('가만히 ' + mx + '초가 지난 것으로 처리했어요. 마우스를 움직이면 깨어나요');
+});
+$('tHour').addEventListener('change', function (e) { if (eng) eng.hour = e.target.value === '' ? null : +e.target.value; });
+
+// ---------- 저장 · 불러오기 ----------
+function exportJSON() {
+  var used = {};
+  P.parts.forEach(function (pt) { pt.images.forEach(function (v) { if (POOL[v.asset]) used[v.asset] = POOL[v.asset]; }); });
+  var out = JSON.parse(snapshot());
+  out.assets = used;
+  return JSON.stringify(out);
+}
+var saveTimer = 0;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () {
+    try {
+      localStorage.setItem(STORE_KEY, exportJSON());
+      var d = new Date();
+      $('saveState').textContent = '이 브라우저에 자동 보관됨 ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    } catch (e) {
+      $('saveState').textContent = '자동 보관 안 됨 (그림 용량 초과). 저장 버튼으로 파일을 받아두세요';
+    }
+  }, 700);
+}
+var DL = null;
+try { if (window.claude && window.claude.use) window.claude.use('downloads').then(function (d) { DL = d; }).catch(function () {}); } catch (e) {}
+var IN_CLAUDE = !!(window.claude && window.claude.use);
+function browserDownload(data) {
+  try {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+    a.download = 'charo-pet.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    return true;
+  } catch (e) { return false; }
+}
+$('bSave').addEventListener('click', function () {
+  var data = exportJSON();
+  if (DL) {
+    DL.save({ filename: 'charo-pet.json', data: data }).then(function () { toast('charo-pet.json을 저장했어요'); })
+      .catch(function (err) { if (err && err.code === 'declined') toast('저장을 취소했어요'); else openDialog(data); });
+  } else if (!IN_CLAUDE && browserDownload(data)) {
+    toast('charo-pet.json을 내려받았어요');
+  } else openDialog(data);
+});
+function openDialog(data) { $('dlgText').value = data; $('dlg').hidden = false; $('dlgCopy').focus(); }
+$('dlgClose').addEventListener('click', function () { $('dlg').hidden = true; });
+$('dlg').addEventListener('click', function (e) { if (e.target === $('dlg')) $('dlg').hidden = true; });
+$('dlgCopy').addEventListener('click', function () { copyText($('dlgText').value, $('dlgText')); });
+function copyText(text, el) {
+  var fallback = function () {
+    if (el && el.select) { el.focus(); el.select(); }
+    else if (el) { var r = document.createRange(); r.selectNodeContents(el); var s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    toast('선택해 두었어요. Ctrl+C로 복사하세요');
+  };
+  try {
+    navigator.clipboard.writeText(text).then(function () { toast('복사했어요'); }, fallback);
+  } catch (e) { fallback(); }
+}
+$('fLoad').addEventListener('change', function (e) {
+  var file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  var fr = new FileReader();
+  fr.onload = function () {
+    try {
+      var p = normalize(JSON.parse(fr.result));
+      pushUndo(); P = p; S.selKey = null; S.hiddenParts = {}; S.clip = P.clips[0] ? P.clips[0].id : 'rest'; S.t = 0; S.sel = null;
+      fixSelection(); alphaCache = {}; changed(); toast('불러왔어요: ' + file.name);
+    } catch (err) { toast('불러오지 못했어요. 이 에디터에서 저장한 .json 파일인지 확인해 주세요'); }
+  };
+  fr.readAsText(file);
+});
+
+// ---------- 공통 ----------
+var toastTimer = 0;
+function toast(msg) {
+  var t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+}
+function updateHints() {
+  var c = curClip();
+  $('ctxChip').textContent = S.mode === 'test' ? '반응 테스트 중' : (c ? '동작: ' + c.name : '기본 자세 편집');
+  $('ctxChip').classList.toggle('live', S.mode === 'test' || !!c);
+  $('stageHint').textContent = S.mode === 'test' ? '' :
+    S.pivotEdit ? '무대를 클릭하거나 끌어서 회전 기준점을 옮기세요. 그림은 제자리에 있어요.' :
+    c ? '파츠를 끌면 이동, 위쪽 동그라미를 끌면 회전 (Shift: 15°씩). 바꾼 값은 현재 시점에 키로 찍혀요. Space 재생, ← → 시간 이동.'
+      : '파츠를 끌어 기본 위치를 잡고, 위쪽 동그라미로 기본 각도를 정하세요.';
+  cv.classList.toggle('grab', S.mode === 'edit');
+}
+function refreshLight() { drawStage(); renderTimeline(); updateInspectorValues(); scheduleSave(); }
+function renderAll() { renderParts(); renderInspector(); renderTimeline(); renderRules(); renderSite(); updateHints(); updateUndoBtns(); drawStage(); }
+function changed() { fixSelection(); renderAll(); scheduleSave(); }
+
+Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+  b.addEventListener('click', function () {
+    S.tab = b.dataset.tab;
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (o) { o.setAttribute('aria-selected', o === b); });
+    ['props', 'rules', 'site'].forEach(function (t) { $('tab-' + t).hidden = t !== S.tab; });
+    document.querySelector('.side').scrollTop = 0;
+    if (S.tab === 'site') drawSitePreview();
+  });
+});
+
+window.addEventListener('keydown', function (e) {
+  var tag = e.target && e.target.tagName;
+  var inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (!$('dlg').hidden) { if (e.key === 'Escape') $('dlg').hidden = true; return; }
+  if (S.mode === 'test') { if (!inField && eng) eng.trigger('type'); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { if (inField) return; e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { if (inField) return; e.preventDefault(); doRedo(); return; }
+  if (inField) return;
+  var c = curClip();
+  if (e.key === ' ' && c) { e.preventDefault(); play(!S.playing); }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && S.selKey) { e.preventDefault(); deleteSelKey(); }
+  else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && c) {
+    e.preventDefault(); play(false);
+    S.t = clamp(r2(S.t + (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 0.1 : 0.01)), 0, c.dur);
+    drawStage(); updatePlayhead(); updateInspectorValues();
+  } else if (e.key === 'Escape' && S.pivotEdit) { S.pivotEdit = false; renderInspector(); updateHints(); drawStage(); }
+});
+$('bUndo').addEventListener('click', doUndo);
+$('bRedo').addEventListener('click', doRedo);
+
+if (window.ResizeObserver) new ResizeObserver(function () { fitStage(); renderTimeline(); }).observe($('stageWrap'));
+window.addEventListener('resize', function () { fitStage(); renderTimeline(); });
+if (window.matchMedia) {
+  var mq = matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', drawStage);
+}
+new MutationObserver(drawStage).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+renderAll();
+fitStage();
+CP.preload(P).then(function () { drawStage(); drawSitePreview(); renderParts(); });
+
+// 사이트에서 열었을 때: 이 브라우저에 작업이 없으면 사이트에 올라간 캐릭터 파일로 시작
+if (!SAVED && !window.claude && /^https?:$/.test(location.protocol)) {
+  fetch('charo-pet.json', { cache: 'no-cache' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (p) {
+      if (!p || undoStack.length) return;
+      P = normalize(p); alphaCache = {}; S.selKey = null;
+      if (!CP.findClip(P, S.clip)) { S.clip = P.clips[0] ? P.clips[0].id : 'rest'; S.t = 0; }
+      fixSelection();
+      CP.preload(P).then(function () { changed(); toast('사이트에 올라간 캐릭터를 불러왔어요'); });
+    })
+    .catch(function () {});
+}
+})();
+</script>
+
+</body>
+</html>

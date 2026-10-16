@@ -1,0 +1,460 @@
+/*!
+ * 차로차로 펫 재생기 (charo-pet.js) v1
+ * 에디터에서 저장한 charo-pet.json 을 읽어 화면 하단에 캐릭터를 띄웁니다.
+ * 사용법: index.html의 body 끝에 아래처럼 script 태그 한 줄을 넣습니다.
+ *   script src="charo-pet.js" data-src="charo-pet.json" defer
+ * 키보드 반응은 "키가 눌렸다"는 신호만 쓰며, 입력한 글자는 읽지 않습니다.
+ */
+(function (global) {
+  'use strict';
+
+  var PROPS = ['x', 'y', 'rot', 'sx', 'sy', 'op'];
+  var DEF = { x: 0, y: 0, rot: 0, sx: 1, sy: 1, op: 1 };
+
+  var EASE = {
+    linear: function (t) { return t; },
+    'in': function (t) { return t * t; },
+    out: function (t) { return 1 - (1 - t) * (1 - t); },
+    inout: function (t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; },
+    back: function (t) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+    step: function () { return 0; }
+  };
+
+  function sampleTrack(keys, t) {
+    if (!keys || !keys.length) return null;
+    if (t <= keys[0].t) return keys[0].v;
+    for (var i = 0; i < keys.length - 1; i++) {
+      var a = keys[i], b = keys[i + 1];
+      if (t < b.t) {
+        var span = b.t - a.t;
+        var u = span > 0 ? (t - a.t) / span : 1;
+        var f = (EASE[a.e] || EASE.linear)(u);
+        return a.v + (b.v - a.v) * f;
+      }
+    }
+    return keys[keys.length - 1].v;
+  }
+
+  // 그림 바꿔치기: 마지막으로 지난 키의 그림으로, f(초) 동안 이전 그림에서 서서히 바뀜
+  function sampleImg(keys, t, restImg, loop) {
+    if (!keys || !keys.length) return null;
+    var cur = -1;
+    for (var i = 0; i < keys.length; i++) { if (keys[i].t <= t + 1e-6) cur = i; else break; }
+    if (cur < 0) {
+      if (!loop) return null;
+      var lv = keys[keys.length - 1].v;
+      return { img: lv, prev: lv, mix: 1 };
+    }
+    var k = keys[cur];
+    var prev = cur > 0 ? keys[cur - 1].v : (loop ? keys[keys.length - 1].v : restImg);
+    var mix = k.f > 0 ? Math.min(1, (t - k.t) / k.f) : 1;
+    return { img: k.v, prev: prev, mix: mix };
+  }
+
+  function findClip(p, id) {
+    if (!id || !p.clips) return null;
+    for (var i = 0; i < p.clips.length; i++) if (p.clips[i].id === id) return p.clips[i];
+    return null;
+  }
+  function findPart(p, id) {
+    if (!id) return null;
+    for (var i = 0; i < p.parts.length; i++) if (p.parts[i].id === id) return p.parts[i];
+    return null;
+  }
+
+  // 한 동작의 t초 시점 값 (키가 있는 속성만)
+  function clipPose(p, clip, t) {
+    var out = {};
+    if (!clip || !clip.tracks) return out;
+    for (var pid in clip.tracks) {
+      if (!Object.prototype.hasOwnProperty.call(clip.tracks, pid)) continue;
+      var part = findPart(p, pid);
+      if (!part) continue;
+      var tr = clip.tracks[pid], o = {}, any = false;
+      for (var j = 0; j < PROPS.length; j++) {
+        var v = sampleTrack(tr[PROPS[j]], t);
+        if (v !== null) { o[PROPS[j]] = v; any = true; }
+      }
+      var im = sampleImg(tr.img, t, part.rest.img || 0, !!clip.loop);
+      if (im) { o.img = im; any = true; }
+      if (any) out[pid] = o;
+    }
+    return out;
+  }
+
+  // 키가 없는 속성은 기본값(변화 없음)으로 채움
+  function offsetsFrom(p, pose) {
+    var off = {};
+    for (var i = 0; i < p.parts.length; i++) {
+      var part = p.parts[i], src = pose[part.id] || {}, o = {};
+      for (var j = 0; j < PROPS.length; j++) {
+        var k = PROPS[j];
+        o[k] = src[k] != null ? src[k] : DEF[k];
+      }
+      o.img = src.img || null;
+      off[part.id] = o;
+    }
+    return off;
+  }
+
+  // 기본 자세 + 동작 변화량 = 최종 자세
+  function finalPose(p, off, follow) {
+    var res = {};
+    for (var i = 0; i < p.parts.length; i++) {
+      var part = p.parts[i], r = part.rest;
+      var o = (off && off[part.id]) || DEF;
+      var f = {
+        x: r.x + o.x, y: r.y + o.y, rot: r.rot + o.rot,
+        sx: r.sx * o.sx, sy: r.sy * o.sy, op: r.op * o.op
+      };
+      var im = o.img;
+      f.img = im ? im.img : (r.img || 0);
+      f.prev = im ? im.prev : f.img;
+      f.mix = im ? im.mix : 1;
+      if (follow && part.follow && part.follow.on) {
+        f.x += follow.x * (part.follow.max || 0);
+        f.y += follow.y * (part.follow.max || 0);
+      }
+      res[part.id] = f;
+    }
+    return res;
+  }
+
+  // 2D 변환 행렬 [a,b,c,d,e,f] (canvas setTransform 순서)
+  function mul(A, B) {
+    return [
+      A[0] * B[0] + A[2] * B[1], A[1] * B[0] + A[3] * B[1],
+      A[0] * B[2] + A[2] * B[3], A[1] * B[2] + A[3] * B[3],
+      A[0] * B[4] + A[2] * B[5] + A[4], A[1] * B[4] + A[3] * B[5] + A[5]
+    ];
+  }
+  function inv(m) {
+    var det = m[0] * m[3] - m[1] * m[2];
+    if (Math.abs(det) < 1e-12) det = det < 0 ? -1e-12 : 1e-12;
+    var a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
+    return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
+  }
+  function apply(m, x, y) { return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }
+  function localM(f, pv) {
+    var r = f.rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+    var a = c * f.sx, b = s * f.sx, cc = -s * f.sy, d = c * f.sy;
+    return [a, b, cc, d, f.x - (a * pv.x + cc * pv.y), f.y - (b * pv.x + d * pv.y)];
+  }
+  function worldMatrices(p, pose) {
+    var W = {}, busy = {};
+    function get(id) {
+      if (W[id]) return W[id];
+      var part = findPart(p, id);
+      if (!part || busy[id] || !pose[id]) return [1, 0, 0, 1, 0, 0];
+      busy[id] = true;
+      var L = localM(pose[id], part.pivot);
+      var m = part.parent && findPart(p, part.parent) ? mul(get(part.parent), L) : L;
+      busy[id] = false;
+      W[id] = m;
+      return m;
+    }
+    for (var i = 0; i < p.parts.length; i++) get(p.parts[i].id);
+    return W;
+  }
+
+  // 그림 캐시
+  var cache = {};
+  function imgFor(p, assetId) {
+    var src = p.assets && p.assets[assetId];
+    if (!src) return null;
+    var e = cache[assetId];
+    if (!e || e._src !== src) {
+      e = new Image();
+      e._src = src;
+      e.src = src;
+      cache[assetId] = e;
+    }
+    return e.complete && e.naturalWidth ? e : null;
+  }
+  function preload(p) {
+    var ids = [];
+    p.parts.forEach(function (pt) { pt.images.forEach(function (v) { ids.push(v.asset); }); });
+    return Promise.all(ids.map(function (id) {
+      return new Promise(function (res) {
+        var src = p.assets && p.assets[id];
+        if (!src) return res();
+        var e = cache[id];
+        if (!e || e._src !== src) { e = new Image(); e._src = src; cache[id] = e; e.src = src; }
+        if (e.complete && e.naturalWidth) return res();
+        e.onload = e.onerror = function () { res(); };
+      });
+    }));
+  }
+
+  function drawVariant(ctx, p, part, idx, alpha) {
+    if (alpha <= 0.001) return;
+    var v = part.images[idx] || part.images[0];
+    if (!v) return;
+    var im = imgFor(p, v.asset);
+    if (!im) return;
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.drawImage(im, 0, 0, v.w || im.naturalWidth, v.h || im.naturalHeight);
+  }
+
+  function render(ctx, p, fp, W, view) {
+    for (var i = 0; i < p.parts.length; i++) {
+      var part = p.parts[i], f = fp[part.id];
+      if (!f || f.op <= 0.001) continue;
+      var m = mul(view, W[part.id]);
+      ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      if (f.prev !== f.img && f.mix < 1) {
+        drawVariant(ctx, p, part, f.prev, f.op * (1 - f.mix));
+        drawVariant(ctx, p, part, f.img, f.op * f.mix);
+      } else {
+        drawVariant(ctx, p, part, f.img, f.op);
+      }
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+
+  function inHours(h, a, b) {
+    a = +a; b = +b;
+    if (a === b) return false;
+    return a < b ? (h >= a && h < b) : (h >= a || h < b);
+  }
+
+  // 반응 규칙 엔진
+  function Engine(p) { this.p = p; this.reset(); }
+  Engine.prototype.reset = function () {
+    var n = (global.performance && performance.now()) || 0;
+    this.t = n; this.lastInput = n; this.one = null; this.layer = undefined;
+    this.layerStart = n; this.blend = null; this.last = null; this.nextRand = {}; this.hour = null;
+  };
+  Engine.prototype.input = function () { this.lastInput = this.t; };
+  Engine.prototype.skipIdle = function (sec) { this.lastInput -= sec * 1000; };
+  Engine.prototype._snap = function () {
+    if (!this.last) return;
+    var c = {};
+    for (var pid in this.last) {
+      c[pid] = {};
+      for (var j = 0; j < PROPS.length; j++) c[pid][PROPS[j]] = this.last[pid][PROPS[j]];
+    }
+    this.blend = { start: this.t, from: c };
+  };
+  Engine.prototype.trigger = function (ev) {
+    this.input();
+    var rules = this.p.rules || [], r = null;
+    for (var i = 0; i < rules.length; i++) {
+      if (rules[i].event === ev && findClip(this.p, rules[i].clip)) { r = rules[i]; break; }
+    }
+    if (!r) return false;
+    if (this.one && !r.interrupt) return false;
+    this._snap();
+    this.one = { id: r.clip, start: this.t };
+    return true;
+  };
+  Engine.prototype.stateClip = function () {
+    var hour = this.hour != null ? this.hour : new Date().getHours();
+    var idle = (this.t - this.lastInput) / 1000;
+    var rules = this.p.rules || [];
+    for (var i = 0; i < rules.length; i++) {
+      var r = rules[i];
+      if (!findClip(this.p, r.clip)) continue;
+      if (r.event === 'idle' && idle >= (+r.sec || 30)) return r.clip;
+      if (r.event === 'time' && inHours(hour, r.from, r.to)) return r.clip;
+    }
+    return this.p.baseClip || null;
+  };
+  Engine.prototype.update = function (t) {
+    this.t = t;
+    var p = this.p, self = this, rules = p.rules || [];
+    rules.forEach(function (r) {
+      if (r.event !== 'random') return;
+      var mn = Math.max(0.5, +r.min || 3), mx = Math.max(mn, +r.max || mn);
+      var next = self.nextRand[r.id];
+      if (next == null) {
+        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
+      } else if (t >= next) {
+        // 랜덤 동작은 평소 동작 중일 때만 (졸고 있을 때 깜빡이며 눈을 뜨지 않도록)
+        if (!self.one && self.layer === (p.baseClip || null) && findClip(p, r.clip)) { self._snap(); self.one = { id: r.clip, start: t }; }
+        self.nextRand[r.id] = t + 1000 * (mn + Math.random() * (mx - mn));
+      }
+    });
+    var layer = this.stateClip();
+    if (layer !== this.layer) {
+      if (this.layer !== undefined) this._snap();
+      this.layer = layer; this.layerStart = t;
+    }
+    var clip = findClip(p, layer), pose = {};
+    if (clip) {
+      var el = (t - this.layerStart) / 1000;
+      var tl = clip.loop ? (clip.dur > 0 ? el % clip.dur : 0) : Math.min(el, clip.dur);
+      pose = clipPose(p, clip, tl);
+    }
+    if (this.one) {
+      var oc = findClip(p, this.one.id), to = (t - this.one.start) / 1000;
+      if (!oc || to >= oc.dur) {
+        this._snap(); this.one = null;
+      } else {
+        var op = clipPose(p, oc, to);
+        for (var pid in op) {
+          var dst = pose[pid] || (pose[pid] = {});
+          for (var k in op[pid]) dst[k] = op[pid][k];
+        }
+      }
+    }
+    var off = offsetsFrom(p, pose);
+    if (this.blend) {
+      var u = (t - this.blend.start) / 160;
+      if (u >= 1) this.blend = null;
+      else {
+        u = EASE.out(u);
+        for (var id in off) {
+          var a = this.blend.from[id];
+          if (!a) continue;
+          for (var j = 0; j < PROPS.length; j++) {
+            var pr = PROPS[j];
+            off[id][pr] = a[pr] + (off[id][pr] - a[pr]) * u;
+          }
+        }
+      }
+    }
+    this.last = off;
+    return off;
+  };
+
+  // ---------- 사이트 하단 표시 ----------
+  function store(key, val) {
+    try {
+      if (val === undefined) return global.localStorage.getItem(key);
+      global.localStorage.setItem(key, val);
+    } catch (e) { return null; }
+    return null;
+  }
+
+  function SitePet(p) {
+    var d = {}, base = { size: 140, corner: 'right', margin: 16, hideOnMobile: true, closable: true };
+    for (var k in base) d[k] = base[k];
+    for (k in (p.display || {})) d[k] = p.display[k];
+    if (d.hideOnMobile && global.matchMedia && matchMedia('(max-width: 640px)').matches) return;
+    var reduce = global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var side = d.corner === 'left' ? 'left' : 'right', other = side === 'left' ? 'right' : 'left';
+    var size = Math.max(40, +d.size || 140), margin = Math.max(0, +d.margin || 0);
+
+    var wrap = document.createElement('div');
+    wrap.setAttribute('data-charo-pet', '');
+    wrap.style.cssText = 'position:fixed;bottom:' + margin + 'px;' + side + ':' + margin + 'px;z-index:9999;width:' +
+      size + 'px;height:' + size + 'px;pointer-events:none;';
+    var cv = document.createElement('canvas');
+    cv.setAttribute('role', 'img');
+    cv.setAttribute('aria-label', p.name || '캐릭터');
+    cv.style.cssText = 'width:100%;height:100%;display:block;pointer-events:auto;cursor:pointer;touch-action:manipulation;';
+    wrap.appendChild(cv);
+
+    var btnCss = 'position:absolute;top:-4px;' + other + ':-4px;width:24px;height:24px;border-radius:50%;' +
+      'border:1px solid rgba(0,0,0,.18);background:#fff;color:#333;font:16px/1 system-ui,sans-serif;' +
+      'cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .2s;padding:0;';
+    var close = null, tab = null, hidden = false;
+    if (d.closable) {
+      close = document.createElement('button');
+      close.type = 'button';
+      close.setAttribute('aria-label', '캐릭터 숨기기');
+      close.textContent = '\u00D7';
+      close.style.cssText = btnCss;
+      wrap.appendChild(close);
+      wrap.addEventListener('pointerenter', function () { close.style.opacity = '1'; });
+      wrap.addEventListener('pointerleave', function () { close.style.opacity = '0'; });
+      close.addEventListener('focus', function () { close.style.opacity = '1'; });
+      close.addEventListener('blur', function () { close.style.opacity = '0'; });
+      tab = document.createElement('button');
+      tab.type = 'button';
+      tab.textContent = (p.name || '캐릭터') + ' 보이기';
+      tab.style.cssText = 'position:fixed;bottom:' + margin + 'px;' + side + ':' + margin + 'px;z-index:9999;' +
+        'display:none;padding:6px 12px;border-radius:999px;border:1px solid rgba(0,0,0,.18);background:#fff;' +
+        'color:#333;font:13px/1.2 system-ui,sans-serif;cursor:pointer;';
+      document.body.appendChild(tab);
+    }
+    document.body.appendChild(wrap);
+
+    var ctx = cv.getContext('2d');
+    var dpr = 1;
+    function resize() {
+      dpr = Math.min(3, global.devicePixelRatio || 1);
+      cv.width = Math.round(size * dpr);
+      cv.height = Math.round(size * dpr);
+    }
+    resize();
+    global.addEventListener('resize', resize);
+
+    var eng = new Engine(p);
+    var follow = { x: 0, y: 0 }, tgt = { x: 0, y: 0 };
+    var S = p.stage || { w: 400, h: 400 };
+    var raf = 0;
+
+    function draw(t) {
+      var off = reduce ? offsetsFrom(p, {}) : eng.update(t);
+      follow.x += (tgt.x - follow.x) * 0.12;
+      follow.y += (tgt.y - follow.y) * 0.12;
+      var sc = size / Math.max(S.w, S.h) * dpr;
+      var view = [sc, 0, 0, sc, (cv.width - S.w * sc) / 2, (cv.height - S.h * sc) / 2];
+      var fp = finalPose(p, off, reduce ? null : follow);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      render(ctx, p, fp, worldMatrices(p, fp), view);
+    }
+    function loop(t) {
+      if (hidden || document.hidden) { raf = 0; return; }
+      draw(t);
+      raf = requestAnimationFrame(loop);
+    }
+    function wake() { if (!raf && !hidden && !document.hidden) raf = requestAnimationFrame(loop); }
+
+    function setHidden(h) {
+      hidden = h;
+      wrap.style.display = h ? 'none' : '';
+      if (tab) tab.style.display = h ? 'block' : 'none';
+      store('charoPetHidden', h ? '1' : '0');
+      if (!h) { eng.input(); wake(); }
+    }
+    if (close) {
+      close.addEventListener('click', function (e) { e.stopPropagation(); setHidden(true); });
+      tab.addEventListener('click', function () { setHidden(false); });
+      if (store('charoPetHidden') === '1') setHidden(true);
+    }
+
+    document.addEventListener('pointermove', function (e) {
+      eng.input();
+      var r = cv.getBoundingClientRect();
+      var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 1) { tgt.x = 0; tgt.y = 0; return; }
+      var kk = Math.min(1, len / 250);
+      tgt.x = dx / len * kk; tgt.y = dy / len * kk;
+    }, { passive: true });
+    document.addEventListener('keydown', function () { if (!reduce) eng.trigger('type'); });
+    global.addEventListener('scroll', function () { eng.input(); }, { passive: true });
+    cv.addEventListener('click', function () { if (!reduce) eng.trigger('click'); });
+    cv.addEventListener('pointerenter', function () { if (!reduce) eng.trigger('hover'); });
+    document.addEventListener('visibilitychange', wake);
+    wake();
+  }
+
+  function mount(script) {
+    var src = script.getAttribute('data-src') || 'charo-pet.json';
+    function start() {
+      fetch(src, { cache: 'no-cache' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (p) { return preload(p).then(function () { new SitePet(p); }); })
+        .catch(function (e) { console.warn('[charo-pet] 캐릭터 파일을 불러오지 못했습니다:', src, e); });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
+  }
+
+  global.CharoPet = {
+    PROPS: PROPS, DEF: DEF, EASE: EASE, sampleTrack: sampleTrack, sampleImg: sampleImg,
+    findClip: findClip, findPart: findPart, clipPose: clipPose, offsetsFrom: offsetsFrom,
+    finalPose: finalPose, mul: mul, inv: inv, apply: apply, localM: localM,
+    worldMatrices: worldMatrices, imgFor: imgFor, preload: preload, render: render,
+    Engine: Engine, mount: mount, inHours: inHours
+  };
+
+  var cs = document.currentScript;
+  if (cs && cs.hasAttribute('data-src')) mount(cs);
+})(window);
