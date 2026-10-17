@@ -64,7 +64,21 @@ parts = [   # 뒤 → 앞 (팻말은 몸통 뒤에서 올라오고, 막대는 �
     part('eyeL', '화면 왼눈', 'body', PIV['eyeL'], [img('기본 점눈', 'eyeL_basic', eB['L']), img('웃는 눈', 'eyeL_welcome', eW['L'])], dict(on=True, max=14)),
     part('eyeR', '화면 오른눈', 'body', PIV['eyeR'], [img('기본 점눈', 'eyeR_basic', eB['R']), img('웃는 눈', 'eyeR_welcome', eW['R'])], dict(on=True, max=14)),
     part('beak', '부리(붉은 타원, 바뀌지 않음)', 'body', PIV['beak'], [img('붉은 타원 부리', 'beak', src['부리_붉은타원'])], dict(on=True, max=6)),
+    # 앞쪽 층: 팻말을 다 들어 올린 뒤에는 몸통 앞으로 나옴. 같은 그림·같은 움직임(뒤쪽 파츠의 자식)이고 투명도로 앞뒤를 바꿈
+    part('signF', '팻말(앞)', 'sign', PIV['sign'], [dict(img('빈 팻말', 'sign', src['팻말_빈판']))]),
+    part('signTextF', '팻말 글자(앞)', 'signF', PIV['sign'], [dict(img(SIGN_TEXT, 'sign_text', txt))]),
+    part('wingRf', '화면 오른날개(앞)', 'wingR', PIV['wingR'], [dict(img('화면 오른날개', 'wingR', src['화면오른날개']))]),
 ]
+FRONT = ('signF', 'signTextF', 'wingRf')
+def layer(c, t_front, t_back=None, end=None):
+    """t_front 순간 팻말·오른날개를 앞쪽 층으로, t_back 순간 다시 뒤로(뚝 바꿈)"""
+    def k(part, a, b):
+        keys = [(0, a, 'step'), (t_front, b, 'step')]
+        if t_back is not None: keys.append((t_back, a, 'step'))
+        keys.append((end, keys[-1][1]))
+        c.k(part, 'op', keys)
+    for p_ in FRONT: k(p_, 0, 1)
+    k('wingR', 1, 0)
 FACES = {'f00': dict(id='f00', name='기본', img=dict(eyeL=0, eyeR=0), mods={}),
          'f01': dict(id='f01', name='환영(웃는 눈, 부리 그대로)', img=dict(eyeL=1, eyeR=1), mods={})}
 H = 232
@@ -92,6 +106,7 @@ c = Clip('d_idle', 'A 대기', 3.0, loop=True, follow='on')
 c.k('body', 'sy', [(0, 1), (1.5, 1.022), (3, 1)]).k('body', 'sx', [(0, 1), (1.5, 0.992), (3, 1)])
 c.k('wingL', 'rot', [(0, 0), (1.6, -3), (3, 0)]).k('wingR', 'rot', [(0, 0), (1.6, 3), (3, 0)])
 c.k('sign', 'op', [(0, 0), (3, 0)]).k('signText', 'op', [(0, 0), (3, 0)])
+for p_ in FRONT: c.k(p_, 'op', [(0, 0), (3, 0)])
 clips.append(c.build())
 c = Clip('d_blink', '깜빡임', 0.22, follow='on')
 for s_ in 'LR': c.k('eye' + s_, 'sy', [(0, 1, 'in'), (0.07, 0.1, 'out'), (0.18, 1)])
@@ -101,6 +116,7 @@ clips.append(c.build())
 c = Clip('d_run', 'B 정면 우다다', 2.4)
 c.face(0, 'f00', 0)
 c.k('sign', 'op', [(0, 0), (2.4, 0)]).k('signText', 'op', [(0, 0), (2.4, 0)])
+for p_ in FRONT: c.k(p_, 'op', [(0, 0), (2.4, 0)])
 STEP = 0.13; steps = [round(0.05 + i * STEP, 3) for i in range(16)]
 c.k('body', 'sx', [(0, 0.55), (2.05, 1.0, 'out'), (2.4, 1)]).k('body', 'sy', [(0, 0.55), (2.05, 1.0, 'out'), (2.4, 1)])
 yk = [(0, -0.2 * H)]
@@ -139,7 +155,8 @@ c.k('wingL', 'rot', [(0, 0), (0.3, 18, 'out')] + alt(0.7, 3.0, 0.55, 10, 22) + [
 # 팻말: 날개를 따라 돌지만 막대가 거의 수직으로 서도록 반대로 돌림 + 뒤늦게 흔들림
 TILT = 12; SR = -WR + TILT    # 날개 회전을 되돌려 막대를 세우고, 바깥쪽으로 조금 기울임
 c.k('sign', 'rot', [(0, TILT), (0.4, SR, 'out'), (0.75, SR - 6), (1.3, SR + 4), (2.1, SR - 2), (3.2, SR + 2)])   # 0.4초 이후는 몸보다 늦게 흔들림
-c.k('sign', 'op', [(0, 0), (0.1, 0, 'linear'), (0.24, 1), (3.2, 1)]).k('signText', 'op', [(0, 0), (0.1, 0, 'linear'), (0.24, 1), (3.2, 1)])
+c.k('sign', 'op', [(0, 0), (0.1, 0, 'linear'), (0.24, 1), (0.32, 1, 'step'), (0.321, 0), (3.2, 0)]).k('signText', 'op', [(0, 0), (0.1, 0, 'linear'), (0.24, 1), (0.32, 1, 'step'), (0.321, 0), (3.2, 0)])
+layer(c, 0.32, end=3.2)
 clips.append(c.build())
 
 # D. 마무리: 들린 발을 한 번 디뎌 균형 회복 → 팻말 내리고 숨김 → 작은 기본형으로 축소·아래로 → 작게 대기 → (시험용) 원래 크기로
@@ -155,7 +172,9 @@ c.k('footR', 'rot', [(0, -8), (0.2, 0), (0.3, 4), (0.42, 0), (END, 0)])
 c.k('wingR', 'rot', [(0, WR - 3), (0.25, WR + 8, 'out'), (0.75, 0, 'inout'), (0.9, 8), (1.05, 0), (END, 0)])
 c.k('wingL', 'rot', [(0, 16), (0.3, -8, 'out'), (0.5, 4), (0.7, 0), (END, 0)])
 c.k('sign', 'rot', [(0, SR + 2), (0.25, -(WR + 8) + TILT - 8, 'out'), (0.75, TILT, 'inout'), (END, TILT)])
-c.k('sign', 'op', [(0, 1), (0.5, 1), (0.7, 0), (END, 0)]).k('signText', 'op', [(0, 1), (0.5, 1), (0.7, 0), (END, 0)])
+c.k('sign', 'op', [(0, 0, 'step'), (0.42, 1), (0.5, 1), (0.7, 0), (END, 0)]).k('signText', 'op', [(0, 0, 'step'), (0.42, 1), (0.5, 1), (0.7, 0), (END, 0)])
+for p_ in FRONT: c.k(p_, 'op', [(0, 1, 'step'), (0.42, 0), (END, 0)])
+c.k('wingR', 'op', [(0, 0, 'step'), (0.42, 1), (END, 1)])
 c.k('wingL', 'sy', [(0, 1), (END, 1)])
 clips.append(c.build())
 

@@ -194,7 +194,10 @@
   "body",
   "eyeL",
   "eyeR",
-  "beak"
+  "beak",
+  "signF",
+  "signTextF",
+  "wingRf"
  ],
  "parents": {
   "sign": "wingR",
@@ -206,6 +209,9 @@
   "body": null,
   "eyeL": "body",
   "eyeR": "body",
-  "beak": "body"
+  "beak": "body",
+  "signF": "sign",
+  "signTextF": "signF",
+  "wingRf": "wingR"
  }
 }
