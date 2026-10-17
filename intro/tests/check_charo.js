@@ -4,13 +4,14 @@ require(require('path').resolve(__dirname, '../../charo-pet.js')); const CP = wi
 const P = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8'));
 const C = CP.findClip(P, 'i_charo'), R = {}, bad = (k, v) => { (R[k] = R[k] || []).length < 5 && R[k].push(v); };
 const FACE = ['eyeL', 'eyeR', 'browL', 'browR', 'mouth'];
+const fk = id => { const f = P.faces.find(x => x.id === id); return FACE.map(k => f.img[k]).join(','); }, KA = fk('f00'), KB = fk('f22');   // 표정 A·B 그림 번호(데이터에서)
 const at = t => CP.finalPose(P, CP.offsetsFrom(P, CP.clipPose(P, C, t)), null);
 const rest = {}; P.parts.forEach(p => rest[p.id] = p.rest);
 let prev = null, faceSeq = [], firstAir = null, maxSlowWing = 0, maxFastWing = 0, scaleOut = [], tiraMax = { y: 0, wing: 0 }, flipMax = { y: 0, rot: 0, wing: 0 };
 const dt = 1 / 240;
 for (let t = 0; t <= C.dur + 1e-9; t += dt) {
   const f = at(t), imgs = FACE.map(k => f[k].img), key = imgs.join(',');
-  if (!(key === '0,0,0,0,0' || key === '3,3,3,3,1')) bad('face_mixed', [t.toFixed(3), key]);
+  if (!(key === KA || key === KB)) bad('face_mixed', [t.toFixed(3), key]);
   if (FACE.some(k => f[k].mix < 1 && f[k].prev !== f[k].img)) bad('face_fade', t.toFixed(3));
   if (!faceSeq.length || faceSeq[faceSeq.length - 1][1] !== key) faceSeq.push([+t.toFixed(3), key]);
   const y = f.body.y - rest.body.y;

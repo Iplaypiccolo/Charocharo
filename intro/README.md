@@ -7,6 +7,8 @@
 | `welcome-fx.js` | 환영 슬로모션 효과: 겨울 배경 · '환영합니다!' 문구 · 폭죽 2개 · 색종이. 같은 시간축의 슬로모션 구간에서만 그림 |
 | `assets/` | 효과 그림(WebP, 전체 약 286KB)과 `fx-assets.json`(잘라낸 크기·기준점). 원본은 `원본_효과/` |
 | `index.html`, `preview.js` | 검수 페이지 |
+| `viewer.js` | 에디터 '로그인 인트로' 탭(보기 전용): 느리게 보기·한 프레임씩·시간표·상태 표·화면 표시 |
+| `tools/clean_for_editor.py` | 캐릭터 파일에서 인트로에 안 쓰는 동작·규칙·표정·그림 정리(다른 스크립트로 파일을 다시 만든 뒤 마지막에 실행) |
 | `tools/build_friend_intro.py` | 친구들 파일에 인트로 전용 동작 추가: 제자리 달리기 `g_run_i`·`d_run_i`·`c_run_i`, 첨다니 고무공 점프 `c_jump_i`, 도로덕 `d_finish_i` |
 | `tools/build_charo_intro.py` | `charo-pet.json`에 `i_charo`(6.7초), `i_charo_r`(모션 줄이기), 표정 `f22`를 넣는 스크립트(기존 파츠·동작·표정은 그대로) |
 | `tests/` | `check_charo.js`(동작 데이터 검사), `t_intro.py`(크롬 재생 검사)와 결과 |

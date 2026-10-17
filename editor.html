@@ -250,6 +250,10 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
   :root { --lab: 112px; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+/* 로그인 인트로 보기 탭 */
+body.viewer-mode .app { display: block; height: auto; background: var(--bg); }
+body.viewer-mode .app > :not(header):not(#introViewer) { display: none !important; }
+body.viewer-mode .bar-actions { display: none !important; }
 </style>
 
 <div class="app">
@@ -1010,9 +1014,590 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
 
 </script>
 <script>
+/*!
+ * 로그인 인트로 재생기 (charo-intro.js)
+ * 여러 캐릭터를 하나의 공통 시간축(T초)으로 그립니다. charo-pet.js(CharoPet)가 먼저 로드돼 있어야 합니다.
+ * - 시간: requestAnimationFrame 한 줄기만 사용(setTimeout으로 장면을 잇지 않음). 건너뛰기 = T를 끝으로 옮김 → 정상 종료와 같은 최종 자세.
+ * - 변환 두 층: ① 바깥 층(이 파일) = 무대 위 위치·표시 크기(다가오기·대형·정렬 축소)
+ *              ② 캐릭터 동작(clip) = 몸통 점프·기울기·날개·표정. 두 층을 곱해서 그림(render의 view 행렬).
+ * - 캐릭터 파일의 파츠 구조(parent·pivot·rest·이미지 x/y/w/h)는 그대로 씀. CharoPet의 clipPose/offsetsFrom/finalPose/worldMatrices/render만 사용.
+ * - Engine을 쓰지 않으므로 인트로 중에는 자동 깜빡임·무작위 동작·커서 따라보기·클릭/타자 반응이 끼어들 수 없음.
+ * - 그림을 다 불러오지 못하면 시작하지 않음(빈 캐릭터로 재생하지 않음).
+ * - 이 파일은 이벤트(마우스·키보드)를 듣지 않고, charo-pet.js처럼 스스로 화면에 붙지도 않음.
+ */
+(function (global) {
+  'use strict';
+  var EASE = {
+    linear: function (u) { return u; }, 'in': function (u) { return u * u; }, out: function (u) { return 1 - (1 - u) * (1 - u); },
+    inout: function (u) { return u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2; }, step: function () { return 0; }
+  };
+  var PROPS = ['x', 'y', 'rot', 'sx', 'sy', 'op'];
+  var BLEND = 0.16;   // 동작(clip)이 바뀔 때 앞 동작 끝 자세에서 넘어오는 시간(초)
+
+  // 바깥 층 키: [t, x, y, h, ease, depth]  (x,y = 발 위치, h = 표시 키, 논리 좌표, depth = 앞뒤 순서(클수록 앞, 없으면 z))
+  function samplePlace(keys, t) {
+    if (t <= keys[0][0]) return keys[0];
+    for (var i = 0; i < keys.length - 1; i++) {
+      var a = keys[i], b = keys[i + 1];
+      if (t < b[0]) {
+        var u = (t - a[0]) / (b[0] - a[0]), f = (EASE[b[4]] || EASE.inout)(u);
+        var da = a[5], db = b[5];
+        return [t, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f, null, (da == null || db == null) ? (da != null ? da : db) : da + (db - da) * u];
+      }
+    }
+    return keys[keys.length - 1];
+  }
+
+  function loadAll(CP, cast) {
+    return Promise.all(cast.map(function (c) {
+      var got = c.data ? Promise.resolve(c.data) : fetch(c.file, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(c.file + ' ' + r.status); return r.json(); });
+      return got.then(function (p) {
+        return CP.preload(p).then(function () {
+          // preload는 실패해도 넘어가므로 여기서 그림이 실제로 열렸는지 확인
+          var bad = [];
+          p.parts.forEach(function (pt) { pt.images.forEach(function (v) { var im = CP.imgFor(p, v.asset); if (!im || !im.complete || !im.naturalWidth) bad.push(v.asset); }); });
+          if (bad.length) throw new Error(c.id + ' 그림을 불러오지 못함: ' + bad.slice(0, 5).join(', '));
+          c.P = p; return c;
+        });
+      });
+    }));
+  }
+
+  function create(opt) {
+    var CP = global.CharoPet;
+    if (!CP || !CP.clipPose) throw new Error('charo-pet.js가 먼저 필요합니다');
+    // 같은 페이지에 자동으로 붙는 차로차로(charo-pet.js data-src, charo-fly.js)가 있으면 캐릭터가 두 벌 생김 → 알림
+    var dup = !!CP.site || !!document.querySelector('script[src*="charo-fly"]');
+    if (dup && global.console) console.warn('[charo-intro] 자동 실행되는 차로차로(charo-pet.js data-src 또는 charo-fly.js)가 함께 있습니다. 인트로 페이지에서는 빼 주세요.');
+    var cv = opt.canvas, ctx = cv.getContext('2d');
+    var W = opt.width || 1000, Hh = opt.height || 600, DUR = opt.duration;
+    var cast = opt.cast, reduce = !!opt.reduce;
+    var welcomed = false, state = 'loading', T = 0, t0 = 0, endAt = 0, raf = 0, paused = false, ready = null, scale = 1, err = null;
+
+    function fit() {
+      var r = cv.getBoundingClientRect(), dpr = global.devicePixelRatio || 1;
+      var w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+      scale = Math.min(w / W, h / Hh);   // 창 크기가 바뀌어도 논리 좌표(1000×600)는 그대로 → 배치가 변하지 않음
+    }
+
+    function segsOf(c) { return (reduce && c.reducedSegs) ? c.reducedSegs : c.segs; }
+    function placeOf(c) { return (reduce && c.reducedPlace) ? c.reducedPlace : c.place; }
+
+    // 한 캐릭터의 T초 자세(바깥 층 제외): 해당 구간 동작의 자세. 구간 사이는 대기 동작 또는 붙잡기
+    function offsetsAt(c, T, after) {
+      var P = c.P, segs = segsOf(c), cur = null, prev = null;
+      for (var i = 0; i < segs.length; i++) {
+        var s = segs[i];
+        if (T >= s.t0 - 1e-9 && T <= s.t1 + 1e-9) cur = s;
+        if (s.t1 <= T + 1e-9) prev = s;
+      }
+      function pose(s, t) { var cl = CP.findClip(P, s.clip); return CP.offsetsFrom(P, CP.clipPose(P, cl, (s.from || 0) + Math.max(0, t - s.t0) * (s.rate || 1))); }
+      var off, startAt = 0, from = null, lastSeg = segs.length ? segs[segs.length - 1] : null;
+      if (after && c.hold && lastSeg) off = pose(lastSeg, lastSeg.t1);       // 끝난 뒤 마지막 자세 유지(예: 티라 팻말)
+      else if (cur && !after) { off = pose(cur, T); startAt = cur.t0; var pi = segs.indexOf(cur) - 1; if (pi >= 0 && Math.abs(segs[pi].t1 - cur.t0) < 1e-6) from = pose(segs[pi], segs[pi].t1); }
+      else {
+        var idle = CP.findClip(P, c.idle), it = (after && lastSeg && lastSeg.t1 >= DUR - 1e-6) ? (T - DUR) : T;   // 대기 동작 시간은 끊기지 않게(끝까지 이어진 동작만 0초부터)
+        off = CP.offsetsFrom(P, CP.clipPose(P, idle, ((it % idle.dur) + idle.dur) % idle.dur));
+        if (prev && !after) { startAt = prev.t1; from = pose(prev, prev.t1); }
+        if (after && lastSeg && lastSeg.t1 >= DUR - 1e-6) { startAt = 0; from = (c.endPose = c.endPose || pose(lastSeg, lastSeg.t1)); }   // 끝까지 이어진 동작이면 그 끝 자세에서 대기로
+      }
+      var since = after ? (T - DUR) : (T - startAt);
+      if (from && since < BLEND) {           // 동작이 바뀌는 순간 튀지 않게 앞 자세에서 넘어옴
+        var u = since / BLEND; u = u * u * (3 - 2 * u);
+        for (var id in off) { var o = off[id], f = from[id]; if (!f) continue;
+          for (var j = 0; j < PROPS.length; j++) { var k = PROPS[j]; o[k] = f[k] + (o[k] - f[k]) * u; } }
+      }
+      return off;
+    }
+
+    function viewOf(c, T) {
+      var pl = samplePlace(placeOf(c), Math.min(T, DUR)), s = pl[3] / c.stageH * scale;
+      return [s, 0, 0, s, (pl[1] - c.anchor[0] * pl[3] / c.stageH) * scale, (pl[2] - c.anchor[1] * pl[3] / c.stageH) * scale];
+    }
+
+    var last = {};
+    function draw() {
+      fit();
+      var after = state === 'wait';
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+      if (opt.fx) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.fx.drawBack(ctx, after ? DUR : T, api); ctx.restore(); }
+      if (opt.drawBack) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.drawBack(ctx, after ? DUR : T, api); ctx.restore(); }
+      var tt = after ? DUR : T;   // 앞뒤 순서: 바깥 층 depth(원근에서 가까울수록 앞) → 없으면 고정 z
+      function dep(c) { var pl = samplePlace(placeOf(c), Math.min(tt, DUR)); return pl[5] != null ? pl[5] : (c.z || 0); }
+      var order = cast.slice().sort(function (a, b) { return dep(a) - dep(b) || (a.z || 0) - (b.z || 0); });
+      last.__order = order.map(function (c) { return c.id; });   // 이번 프레임 그린 순서(뒤 → 앞), 검사용
+      order.forEach(function (c) {
+        var off = offsetsAt(c, T, after), fp = CP.finalPose(c.P, off, null), v = viewOf(c, after ? DUR : T);
+        CP.render(ctx, c.P, fp, CP.worldMatrices(c.P, fp), v);
+        last[c.id] = { fp: fp, view: v };
+      });
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+      if (opt.fx) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.fx.drawFront(ctx, after ? DUR : T, api); ctx.restore(); }
+      if (opt.drawFront) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.drawFront(ctx, after ? DUR : T, api); ctx.restore(); }
+      if (opt.onWelcome && !welcomed && opt.fx && opt.fx.active(after ? DUR : T) && state === 'play') { welcomed = true; opt.onWelcome(api); }   // 화면 낭독용 알림 한 번
+    }
+
+    function loop(now) {
+      raf = global.requestAnimationFrame(loop);
+      if (state === 'play' && !paused) {
+        T = (now - t0) / 1000;
+        if (T >= DUR) { T = DUR; finish(now); }
+      } else if (state === 'wait') { T = DUR + (now - endAt) / 1000; }
+      draw();
+    }
+    function finish(now) {
+      if (state === 'wait') return;
+      state = 'wait'; endAt = now || global.performance.now(); T = DUR;
+      cast.forEach(function (c) { c.endPose = null; });
+      if (opt.onEnd) opt.onEnd(api);
+    }
+
+    var api = {
+      ready: null,
+      start: function () { return ready.then(function () { state = 'play'; paused = false; T = 0; welcomed = false; t0 = global.performance.now(); cast.forEach(function (c) { c.endPose = null; }); }); },
+      skip: function () { if (state === 'loading' || state === 'error') return; finish(); },     // 정상 종료와 같은 자리·자세로
+      restart: function () { return api.start(); },
+      seek: function (t) { if (state === 'loading' || state === 'error') return; state = 'play'; paused = true; T = Math.max(0, Math.min(DUR, t)); },
+      resume: function () { if (paused) { paused = false; t0 = global.performance.now() - T * 1000; } },
+      setReduce: function (r) { reduce = !!r; if (opt.fx && opt.fx.setReduce) opt.fx.setReduce(reduce); },
+      destroy: function () { global.cancelAnimationFrame(raf); raf = 0; state = 'done'; },
+      endState: function () {   // 끝난 직후(대기 0초) 자세와 바깥 층 행렬 — 정상 종료·건너뛰기 비교용
+        var o = {}; cast.forEach(function (c) { var e = c.endPose; c.endPose = null; var off = offsetsAt(c, DUR, true); c.endPose = e;
+          o[c.id] = { fp: CP.finalPose(c.P, off, null), view: viewOf(c, DUR).map(function (v) { return v / scale; }) }; }); return o; },
+      info: function () { return { state: state, T: T, paused: paused, reduce: reduce, duplicate: dup, error: err && String(err.message || err), last: last }; },
+      phase: function (t) { var ph = opt.phases || [], x = ''; ph.forEach(function (p) { if (t >= p[0]) x = p[1]; }); return x; },
+      cast: cast
+    };
+    ready = Promise.all([loadAll(CP, cast), opt.fx ? opt.fx.ready : null]).then(function () { state = 'idle'; fit(); raf = global.requestAnimationFrame(loop); },
+                                   function (e) { state = 'error'; err = e; if (opt.onError) opt.onError(e); throw e; });
+    api.ready = ready;
+    return api;
+  }
+  global.CharoIntro = { create: create, samplePlace: samplePlace };
+})(window);
+
+/*!
+ * 환영 슬로모션 효과 (welcome-fx.js): 겨울 배경 · '환영합니다!' 문구 · 폭죽 2개 · 색종이
+ * - 인트로 재생기(charo-intro.js)의 공통 시간 T를 받아 그림. 효과 시간 = 슬로모션 구간 안의 로컬 시간(0~1.6초)이고,
+ *   슬로모션 길이가 바뀌면 비율대로 늘거나 줄어듦(별도 슬로모션을 또 곱하지 않음).
+ * - 입자(폭죽 조각·색종이)의 위치·색·회전 속도는 만들 때 고정된 씨앗(seed)으로 한 번만 정함 → 매 프레임 무작위로 튀지 않음.
+ * - 위치는 시간 T만으로 계산(타이머 없음) → 건너뛰기·재시작·되감기·창 크기 변경에도 잔상이 남지 않음.
+ * - 좌표는 인트로 무대 논리 좌표(1000×600). 그림 크기는 PNG 전체가 아니라 보이는 그림(잘라낸 영역) 기준.
+ */
+(function (global) {
+  'use strict';
+  function rng(seed) { var s = seed >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
+  function easeOut(u) { u = clamp(u, 0, 1); return 1 - (1 - u) * (1 - u); }
+  function smooth(u) { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); }
+
+  function create(opt) {
+    var M = opt.meta, base = opt.base || '', W = opt.width || 1000, H = opt.height || 600;
+    var S0 = opt.slow[0], S1 = opt.slow[1], K = (S1 - S0) / 1.6;   // 기준 1.6초 → 실제 슬로모션 길이 비율
+    var reduce = !!opt.reduce, mobile = !!opt.mobile;
+    var IM = {}, failed = [];
+    var keys = ['bg', 'title', 'ray_y', 'ray_p', 'ray_s', 'conf_y', 'conf_p', 'conf_s'];
+    var ready = Promise.all(keys.map(function (k) {
+      return new Promise(function (res) {
+        var im = new Image(); im.onload = function () { IM[k] = im; res(); }; im.onerror = function () { failed.push(k); res(); };
+        im.src = (opt.data && opt.data[k]) || (base + M[k].file);
+      });
+    })).then(function () { if (IM.title == null) throw new Error('환영 문구 그림을 불러오지 못함'); });   // 배경·입자가 없으면 그것만 생략
+
+    // ── 배치(무대 정규화 좌표 → 논리 좌표) ──
+    var TITLE = { cx: 0.505 * W, cy: 0.25 * H, w: 0.56 * W };                 // 보이는 문구 폭 = 무대 폭 56%
+    var BG = { x: 0, w: W, h: W / (M.bg.w / M.bg.h) }; BG.y = (H - BG.h) / 2;  // 배경: 무대 폭에 맞춤(가장자리는 그림 자체가 투명)
+    var BURSTS = [{ cx: 0.17 * W, cy: 0.36 * H, t0: 0.08, t1: 0.65, seed: 11 }, { cx: 0.84 * W, cy: 0.35 * H, t0: 0.20, t1: 0.75, seed: 23 }];
+    var RAYK = ['ray_y', 'ray_p', 'ray_s'], CONFK = ['conf_y', 'conf_p', 'conf_s'];
+    BURSTS.forEach(function (b) {          // 조각 11개: 세 색 고르게, 각도·길이·지연을 조금씩 다르게
+      var r = rng(b.seed); b.rays = [];
+      for (var i = 0; i < 11; i++) b.rays.push({ k: RAYK[(i + b.seed) % 3], a: (i / 11) * Math.PI * 2 + (r() - 0.5) * 0.28, len: 28 * (0.85 + r() * 0.3), d: r() * 0.04, out: 0.9 + r() * 0.25 });
+    });
+    // 색종이: 무대 양옆·문구 바깥 여백에서 출발(얼굴·문구·팻말 금지 구역은 출발점 선택에서 제외), 대부분 캐릭터 뒤 층
+    var N = reduce ? 0 : (mobile ? 10 : 18), conf = [], r2 = rng(97);
+    var ZONES = [[30, 60, 230, 280], [770, 60, 970, 280], [150, 20, 240, 70], [760, 20, 860, 70]];
+    for (var i = 0; i < N; i++) {
+      var z = ZONES[i % ZONES.length];
+      conf.push({ k: CONFK[i % 3], x: z[0] + r2() * (z[2] - z[0]), y: z[1] + r2() * (z[3] - z[1]), up: 30 + r2() * 40, tu: 0.25 + r2() * 0.15,
+        fall: 70 + r2() * 60, sway: 6 + r2() * 10, sw: 3 + r2() * 3, ph: r2() * 6.28, spin: (r2() - 0.5) * 6, a0: r2() * 6.28,
+        flip: 5 + r2() * 6, fph: r2() * 6.28, len: 0.010 * W + r2() * 0.008 * W, dx: (z[0] < W / 2 ? -1 : 1) * (8 + r2() * 14),
+        front: i % 6 === 5 && (z[0] < 200 || z[0] > 900) });
+    }
+    function local(T) { return (T - S0) / K; }             // 기준 1.6초 축의 로컬 시간
+    function fadeAll(t) { return Math.min(smooth(t / 0.2), 1 - smooth((t - 1.35) / 0.25)); }   // 0~0.2 나타남, 1.35~1.6 정리
+
+    function drawImg(ctx, k, x, y, w, h) { if (IM[k]) ctx.drawImage(IM[k], x, y, w, h); }
+    function drawConf(ctx, t, front) {
+      conf.forEach(function (c) {
+        if (c.front !== front || !IM[c.k]) return;
+        var y = t < c.tu ? c.y - c.up * (t / c.tu) * (2 - t / c.tu) : c.y - c.up + c.fall * Math.pow(t - c.tu, 1.15);   // 솟았다 천천히 낙하
+        var x = c.x + c.dx * easeOut(t / 0.5) + c.sway * Math.sin(c.sw * t + c.ph);
+        var fl = Math.cos(c.flip * t + c.fph), wsc = Math.max(0.15, Math.abs(fl));                   // 뒤집힘: 가로폭을 cos로(앞뒤 같은 색)
+        var im = M[c.k], s = c.len / im.h;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(c.a0 + c.spin * t); ctx.scale(wsc * s, s);
+        ctx.drawImage(IM[c.k], -im.anchor[0], -im.anchor[1], im.w, im.h); ctx.restore();
+      });
+    }
+    var layers = { bg: true, title: true, bursts: true, confetti: true };   // 보기용 켜고 끄기(인트로 보기 탭)
+    var api = {
+      layers: layers,
+      timeline: function () { var g = function (t) { return S0 + t * K; }; return [['배경', g(0), g(1.6)], ['문구 펼침', g(0), g(0.32)], ['문구', g(0.32), g(1.6)], ['폭죽 왼쪽', g(0.08), g(0.65)], ['폭죽 오른쪽', g(0.20), g(0.75)], ['색종이', g(0), g(1.6)], ['정리(사라짐)', g(1.35), g(1.6)]]; },
+      ready: ready, failed: failed, active: function (T) { var t = local(T); return t >= 0 && t <= 1.6; },
+      drawBack: function (ctx, T) {
+        var t = local(T); if (t < 0 || t > 1.6) return;
+        var a = fadeAll(t);
+        if (layers.bg) { ctx.save(); ctx.globalAlpha = a; drawImg(ctx, 'bg', BG.x, BG.y, BG.w, BG.h); ctx.restore(); }
+        if (reduce) return;
+        if (layers.bursts) BURSTS.forEach(function (b) {
+          b.rays.forEach(function (ry) {
+            var tt = t - b.t0 - ry.d, life = b.t1 - b.t0; if (tt < 0 || tt > life || !IM[ry.k]) return;
+            var u = tt / 0.5, rin = 4 + 26 * easeOut(u) * ry.out + 6 * Math.max(0, tt - 0.5), grow = 0.35 + 0.65 * easeOut(tt / 0.18);
+            var al = 1 - smooth((tt - (life - 0.25)) / 0.25), droop = 10 * Math.pow(Math.max(0, u - 0.6), 2);
+            var im = M[ry.k], s = ry.len * grow / im.h;
+            ctx.save(); ctx.globalAlpha = al * a;
+            ctx.translate(b.cx + Math.cos(ry.a) * rin, b.cy + Math.sin(ry.a) * rin + droop);
+            ctx.rotate(ry.a + Math.PI / 2);                          // 원본: 뾰족한 끝(기준점)이 아래 → 끝이 중심을 향하게
+            ctx.scale(s, s); ctx.drawImage(IM[ry.k], -im.anchor[0], -im.anchor[1], im.w, im.h); ctx.restore();
+          });
+        });
+        if (layers.confetti) { ctx.save(); ctx.globalAlpha = a; drawConf(ctx, t, false); ctx.restore(); }
+      },
+      drawFront: function (ctx, T) {
+        var t = local(T); if (t < 0 || t > 1.6 || !IM.title) return;
+        if (!layers.title) { if (!reduce && layers.confetti) { ctx.save(); ctx.globalAlpha = 1 - smooth((t - 1.35) / 0.25); drawConf(ctx, t, true); ctx.restore(); } return; }
+        var a = 1 - smooth((t - 1.35) / 0.25), im = M.title;
+        var sc = reduce ? 1 : (t < 0.2 ? 0.88 + 0.16 * smooth(t / 0.2) : 1.04 - 0.04 * smooth((t - 0.2) / 0.12));   // 0.88 → 1.04 → 1.0 한 번만
+        var w = TITLE.w * sc, h = w * im.h / im.w, x = TITLE.cx - w / 2, y = TITLE.cy - h / 2;
+        var rv = reduce ? 1 : easeOut(t / 0.32);                     // 왼쪽 → 오른쪽으로 펼쳐 보이기(0.32초)
+        ctx.save(); ctx.globalAlpha = reduce ? Math.min(a, smooth(t / 0.2)) : a;
+        ctx.beginPath(); ctx.rect(x - 4, y - 4, (w + 8) * rv, h + 8); ctx.clip();
+        ctx.drawImage(IM.title, x, y, w, h); ctx.restore();
+        if (!reduce && layers.confetti) { ctx.save(); ctx.globalAlpha = a; drawConf(ctx, t, true); ctx.restore(); }
+      },
+      boxes: function () { var h = TITLE.w * M.title.h / M.title.w; return { title: [TITLE.cx - TITLE.w / 2, TITLE.cy - h / 2, TITLE.cx + TITLE.w / 2, TITLE.cy + h / 2], bg: [BG.x, BG.y, BG.x + BG.w, BG.y + BG.h], bursts: BURSTS.map(function (b) { return [b.cx, b.cy]; }) }; },
+      setReduce: function (r) { reduce = !!r; }
+    };
+    return api;
+  }
+  global.CharoWelcomeFX = { create: create };
+})(window);
+
+/* 로그인 인트로 배치표 (2026-10-17 개정 콘티). 시간은 모두 같은 시간축(초)입니다.
+   0.00     티라만 서 있음(친구들은 아직 안 보임)
+   0.30~    길통이·첨다니·차로차로·도로덕이 지평선의 한 점(소실점)에서 나와 같은 땅 위를 달려오며 커짐(원근)
+   0.30~2.30 티라: 불 뿜기 → 뜨거워 → '아 맞다' → 머리만 돌려 입으로 거꾸로 팻말 꺼냄
+   1.55     첨다니가 먼저 도착 → 1.62 고무공 점프 → 차로차로 위쪽(뒤)에 자리
+   2.30~3.90 친구들이 도착하는 그 순간 슬로모션: '환영합니다!' 문구·배경·폭죽·색종이(welcome-fx.js)
+   3.90~    착지·균형 회복 → 4.20 첨다니가 공중제비로 티라 왼쪽으로
+   5.15~5.85 함께 작아지며 아래 줄로: 첨다니–티라–길통이–차로차로–도로덕 → 로그인 대기
+   place 키: [시각, 발 x, 발 y, 표시 키, 이징, 앞뒤(클수록 앞)] — 논리 화면 1000×600 */
+(function (global) {
+  'use strict';
+  var DUR = 6.3, SLOW = [2.30, 3.90], LS = 0.55, L0 = 5.15, L1 = 5.85;
+  var VP = [500, 336];                      // 소실점 = 겨울 배경 그림의 도로가 모이는 점(배경을 무대 폭에 맞춰 그렸을 때)
+  var ROW = 585, X = { chumdani: 300, tira: 393, giltong: 490, charocharo: 602, doroduck: 705 };   // 최종 폭(대형 키×0.55) + 14px 간격
+  // 대형(슬로모션) 자리 = 구도 참고 사진의 위치·크기를 무대 좌표로 옮긴 값(사진 폭 1670 → 무대 1000, 배경과 같은 비율).
+  // 가로는 티라 왼쪽 끝~도로덕 오른쪽 끝의 가운데가 '환영합니다!' 가운데(505)에 오도록 DX만큼 함께 옮김
+  var DX = -65;   // 측정: 티라 왼쪽 끝 249 ~ 도로덕 오른쪽 끝 890 → 가운데 570 → 505로
+  function at(x, y, h) { return [x + DX, y, h]; }
+  var F = { tira: at(296, 516, 133), giltong: at(431, 542, 290), charocharo: at(630, 545, 157), doroduck: at(785, 521, 113),
+            chumLane: at(512, 528, 137), chumPerch: at(684, 390, 137) };
+  // 슬로모션 뒤 '자리 잡기'(첨다니가 티라 왼쪽에 내려앉을 자리를 위해 다 같이 조금 오른쪽으로)
+  var S = { tira: at(332, 516, 133), giltong: at(462, 542, 290), charocharo: at(655, 545, 157), doroduck: at(808, 521, 113), chumSide: at(205, 522, 137) };
+  var HF = { chumdani: 69, tira: 96, giltong: 113, charocharo: 76, doroduck: 82 };   // 최종 줄 크기(로그인 대기)
+  // 원근 달리기: 지평선의 점(배율 s0)에서 제자리(배율 1)까지. 배율은 지수적으로 커짐(일정한 속도로 다가올 때처럼)
+  function run(f, t0, t1, s0, drift, dm) {   // dm: 같은 거리일 때 앞뒤 순서 보정(길통이가 차로차로 날개 앞)
+    dm = dm || 1;
+    var k = [[0, VP[0], VP[1], 0, 'linear', 0], [t0 - 0.001, VP[0], VP[1], 0, 'linear', 0]];
+    for (var t = t0; t <= t1 + 1e-9; t = Math.round((t + 0.05) * 1000) / 1000) {
+      var u = Math.min(1, (t - t0) / (t1 - t0)), s = Math.exp(Math.log(s0) * (1 - u));
+      k.push([t, VP[0] + (f[0] - VP[0]) * s, VP[1] + (f[1] - VP[1]) * s, f[2] * s, 'linear', s * dm]);
+    }
+    if (drift) {   // 슬로모션 동안 아주 조금 더 앞으로 밀려옴(멈춰 서지 않은 느낌)
+      var d = drift; k.push([SLOW[1], VP[0] + (f[0] - VP[0]) * d, VP[1] + (f[1] - VP[1]) * d, f[2] * d, 'out', d * dm]);
+      k.push([4.30, f[0], f[1], f[2], 'inout', dm]);
+    }
+    return k;
+  }
+  function settle(id, f, dep) {   // 4.30~4.98 자리 잡기
+    var s2 = S[id]; return [[4.30, f[0], f[1], f[2], 'linear', dep], [4.98, s2[0], s2[1], s2[2], 'inout', dep]];
+  }
+  function lineup(id, f, hEnd, dep) {
+    var h = HF[id];
+    return [[L0, f[0], f[1], f[2], 'inout', dep], [L1, X[id], ROW, h, 'inout', dep], [DUR, X[id], ROW, h, 'linear', dep]];
+  }
+  // 첨다니: 0.30 출발 → 1.55 먼저 도착(자기 줄: 길통이와 차로차로 사이) → 1.62 점프 시작(납작) → 1.86~2.16 공중 → 차로차로 위쪽(뒤)
+  var cl = F.chumLane, cp = F.chumPerch, cs = S.chumSide;
+  var chum = run(cl, 0.30, 1.55, 0.03).concat([[1.84, cl[0], cl[1], cl[2], 'linear', 1]]);
+  for (var i = 1; i <= 6; i++) {           // 포물선(위로 높이 솟았다 차로차로 뒤쪽 자리에 내려앉음)
+    var u = i / 6, x = cl[0] + (cp[0] - cl[0]) * u, y = cl[1] + (cp[1] - cl[1]) * u - 4 * 150 * u * (1 - u);
+    chum.push([1.86 + 0.30 * u, x, y, cl[2] + (cp[2] - cl[2]) * u, 'linear', u < 1 ? 1 : 0.4]);
+  }
+  chum.push([4.30, cp[0], cp[1], cp[2], 'linear', 0.4]);
+  // 4.30~4.98 공중제비로 친구들 머리 위를 넘어 티라 왼쪽에 착지
+  for (var j = 1; j <= 8; j++) {
+    var v = j / 8, x2 = cp[0] + (cs[0] - cp[0]) * v, y2 = cp[1] + (cs[1] - cp[1]) * v - 4 * 240 * v * (1 - v);   // 티라 머리 위로 충분히 높게
+    chum.push([4.30 + 0.68 * v, x2, y2, cp[2] + (cs[2] - cp[2]) * v, 'linear', 2]);
+  }
+  chum = chum.concat(lineup('chumdani', cs, null, 0.3));
+  var base = '../';
+  var cast = [
+    { id: 'chumdani', name: '첨다니', file: base + 'chumdani/chumdani.json', anchor: [200, 283], stageH: 167, idle: 'c_idle',
+      segs: [{ t0: 0.30, t1: 1.62, clip: 'c_run_i', rate: 1.3 }, { t0: 1.62, t1: 2.42, clip: 'c_jump_i' }, { t0: SLOW[0], t1: SLOW[1], clip: 'c_welcome', rate: 2 },
+             { t0: 4.22, t1: 5.32, clip: 'c_flip', rate: 1.6 }],
+      moves: [[0.30, 1.55, '원근 달리기(먼저 도착)'], [1.62, 2.16, '점프 → 차로차로 뒤'], [2.16, 4.30, '대형(차로차로 뒤)'], [4.30, 4.98, '공중제비 → 티라 왼쪽'], [5.15, 5.85, '정렬·축소']],
+      place: chum, reducedSegs: [],
+      reducedPlace: [[0, cp[0], cp[1], cp[2], 'linear', 0.4], [4.30, cp[0], cp[1], cp[2], 'linear', 0.4], [4.98, cs[0], cs[1], cs[2], 'inout', 0.3]].concat(lineup('chumdani', cs, null, 0.3)) },
+    { id: 'giltong', name: '길통이', file: base + 'giltong/giltong.json', anchor: [200, 351], stageH: 285, idle: 'g_idle',
+      segs: [{ t0: 0.30, t1: SLOW[0], clip: 'g_run_i' }, { t0: SLOW[0], t1: SLOW[1], clip: 'g_welcome', rate: 2 }, { t0: SLOW[1], t1: 4.50, clip: 'g_finish', rate: 1 }],
+      moves: [[0.30, SLOW[0], '원근 달리기'], [SLOW[0], 4.30, '대형'], [4.30, 4.98, '자리 잡기'], [5.15, 5.85, '정렬·축소']],
+      place: run(F.giltong, 0.30, SLOW[0], 0.03, 1.02, 1.05).concat(settle('giltong', F.giltong, 1.05), lineup('giltong', S.giltong, null, 1.05)), reducedSegs: [],
+      reducedPlace: [[0].concat(F.giltong, ['linear', 1.05])].concat(settle('giltong', F.giltong, 1.05), lineup('giltong', S.giltong, null, 1.05)) },
+    { id: 'tira', name: '티라', file: base + 'tira_v3/tira_v3.json', anchor: [200, 382], stageH: 274, idle: 't_idle', hold: true,
+      segs: [{ t0: 0, t1: DUR, clip: 't_intro' }], reducedSegs: [{ t0: 0, t1: DUR, clip: 't_intro_r' }],
+      steps: [[0.30, 0.82, '불 뿜기·뜨거워 ><'], [0.98, 1.20, '아 맞다!'], [1.20, 1.92, '머리 돌려 등 뒤 물기'], [1.92, 2.30, '꺼내서 펼치기'], [2.30, 2.55, '거꾸로 환영 · 읽기 박자'], [2.55, 3.90, '판만 흔들림 → 안정'], [3.95, 4.76, '팻말 다시 등 뒤로']],
+      moves: [[0, 4.30, '제자리(대형 왼쪽)'], [4.30, 4.98, '자리 잡기'], [5.15, 5.85, '정렬·축소']],
+      place: [[0].concat(F.tira, ['linear', 1.1])].concat(settle('tira', F.tira, 1.1), lineup('tira', S.tira, null, 1.1)) },
+    { id: 'charocharo', name: '차로차로', file: base + 'charo-pet.json', anchor: [200, 370], stageH: 231, idle: 'c_breath',
+      segs: [{ t0: 0, t1: DUR, clip: 'i_charo' }], reducedSegs: [{ t0: 0, t1: DUR, clip: 'i_charo_r' }],
+      moves: [[0.30, SLOW[0], '원근 달리기'], [SLOW[0], 4.30, '대형'], [4.30, 4.98, '자리 잡기'], [5.15, 5.85, '정렬·축소']],
+      steps: [[0.30, 1.98, '통통 달리기'], [1.98, 2.12, '웅크림'], [2.12, 2.30, '폴짝·파닥 (표정 B)'], [2.30, 3.90, '슬로모션 비행'], [3.90, 4.30, '착지 (표정 A)'], [4.50, 4.73, '날개 정리']],
+      place: run(F.charocharo, 0.30, SLOW[0], 0.03, 1.02).concat(settle('charocharo', F.charocharo, 1), lineup('charocharo', S.charocharo, null, 1)),
+      reducedPlace: [[0].concat(F.charocharo, ['linear', 1])].concat(settle('charocharo', F.charocharo, 1), lineup('charocharo', S.charocharo, null, 1)) },
+    { id: 'doroduck', name: '도로덕', file: base + 'doroduck/doroduck.json', anchor: [200, 354], stageH: 231, idle: 'd_idle',
+      segs: [{ t0: 0.30, t1: SLOW[0], clip: 'd_run_i' }, { t0: SLOW[0], t1: SLOW[1], clip: 'd_welcome', rate: 2 }, { t0: SLOW[1], t1: 4.75, clip: 'd_finish_i', rate: 1 }],
+      moves: [[0.30, SLOW[0], '원근 달리기'], [SLOW[0], 4.30, '대형'], [4.30, 4.98, '자리 잡기'], [5.15, 5.85, '정렬·축소']],
+      place: run(F.doroduck, 0.30, SLOW[0], 0.03, 1.02, 1.02).concat(settle('doroduck', F.doroduck, 1.02), lineup('doroduck', S.doroduck, null, 1.02)), reducedSegs: [],
+      reducedPlace: [[0].concat(F.doroduck, ['linear', 1.02])].concat(settle('doroduck', F.doroduck, 1.02), lineup('doroduck', S.doroduck, null, 1.02)) }
+  ];
+  var phases = [[0, '티라 혼자 · 친구들 출발 전', '티라만 서 있고 친구들은 아직 지평선 너머(안 보임).'],
+                [0.3, '친구들 달려옴 · 티라 불 뿜기', '네 친구가 지평선의 한 점에서 나와 같은 땅 위를 달려오며 점점 커짐. 티라는 신나서 불을 뿜다 뜨거워 ><.'],
+                [1.2, '티라 팻말 꺼내기', "티라가 '아 맞다!' 하고 머리만 돌려 등 뒤 팻말을 입으로 물어 꺼냄(아랫몸통은 고정)."],
+                [1.62, '첨다니 고무공 점프', '먼저 도착한 첨다니가 옆으로 납작했다가 위로 쭉 펴지며 점프해 차로차로 위쪽 뒤에 자리.'],
+                [2.12, '차로차로 폴짝', '차로차로가 멈추지 않고 달리던 그대로 폴짝. 땅에서 떨어지는 순간 표정 B(신나서 질끈).'],
+                [2.3, '환영 슬로모션', "친구들이 도착하는 그 순간부터 느리게. '환영합니다!' 문구·겨울 배경·폭죽·색종이가 나타나고, 티라의 거꾸로 '환영'이 0.25초 멈춰 보임."],
+                [3.9, '착지 · 팻말 다시 넣기', '효과가 사라지고 모두 균형을 되찾음. 티라는 팻말을 다시 등 뒤로, 도로덕은 팻말을 내림.'],
+                [4.3, '첨다니 공중제비 → 티라 옆', '첨다니가 친구들 머리 위로 공중제비를 돌아 티라 왼쪽에 착지. 다른 친구들은 조금 비켜 자리 잡기.'],
+                [5.15, '정렬 · 축소', '다 함께 작아지며 아래 줄로: 첨다니–티라–길통이–차로차로–도로덕.'],
+                [5.85, '로그인 대기로', '정렬한 자리에서 대기 동작으로 이어짐(이후 로그인 화면).']];
+  global.CharoIntroCast = { duration: DUR, cast: cast, phases: phases, lineupRow: ROW, lineupX: X, slow: SLOW, vanishingPoint: VP, formation: F, settle: S, DX: DX };
+})(window);
+
+/*!
+ * 로그인 인트로 보기 (viewer.js) — 고치는 화면이 아니라 '어떻게 움직이는지'를 보는 화면
+ * 무대 + 재생 조절(느리게·한 프레임씩) + 시간표(장면·효과·캐릭터별 동작/이동) + 지금 상태 표 + 화면 위 표시(이름표·발 위치·지평선)
+ * 필요: charo-pet.js, charo-intro.js, welcome-fx.js, intro-cast.js
+ * 사용: CharoIntroViewer.mount(요소, { base: 'intro/', fxMeta, fxData, dataFor: function (id) { return 캐릭터 JSON 또는 null } })
+ */
+(function (global) {
+  'use strict';
+  var CSS = '' +
+    '.iv{--iv-bg:#f4f6f8;--iv-card:#fff;--iv-ink:#13202e;--iv-sub:#5a6b7b;--iv-line:#dfe5ea;--iv-acc:#1f5f8f;--iv-slow:rgba(255,196,0,.16);' +
+    'font:14px/1.5 "Pretendard",-apple-system,"Malgun Gothic","Noto Sans KR",sans-serif;color:var(--iv-ink);display:grid;gap:14px;padding:14px;box-sizing:border-box}' +
+    '@media (prefers-color-scheme: dark){.iv{--iv-bg:#0f1a25;--iv-card:#162430;--iv-ink:#e3ebf2;--iv-sub:#9fb1c1;--iv-line:#2a3d4c;--iv-acc:#6fb0e0;--iv-slow:rgba(255,196,0,.12)}}' +
+    '.iv *{box-sizing:border-box}.iv-top{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;align-items:start}' +
+    '@media (max-width:900px){.iv-top{grid-template-columns:1fr}}' +
+    '.iv-stage{position:relative;width:100%;aspect-ratio:1000/600;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#1f5f8f,#10243a)}' +
+    '.iv-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.iv-ov{pointer-events:none}' +
+    '.iv-card{background:var(--iv-card);border:1px solid var(--iv-line);border-radius:12px;padding:12px}' +
+    '.iv-card h3{margin:0 0 4px;font-size:13px;color:var(--iv-sub);font-weight:600;letter-spacing:.02em}' +
+    '.iv-now{font-size:20px;font-weight:700;margin:0}.iv-desc{margin:6px 0 0;color:var(--iv-sub)}' +
+    '.iv-t{font:600 28px/1 ui-monospace,Consolas,monospace}.iv-slowtag{display:inline-block;margin-left:8px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:#ffc400;color:#3a2a00;vertical-align:middle}' +
+    '.iv-ctrl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}' +
+    '.iv button{font:inherit;font-size:13px;color:var(--iv-ink);background:var(--iv-card);border:1px solid var(--iv-line);border-radius:8px;padding:6px 10px;cursor:pointer}' +
+    '.iv button:hover{border-color:var(--iv-acc)}.iv button[aria-pressed="true"],.iv button.main{background:var(--iv-acc);color:#fff;border-color:var(--iv-acc)}' +
+    '.iv button:focus-visible{outline:2px solid var(--iv-acc);outline-offset:2px}.iv label{display:inline-flex;gap:5px;align-items:center;font-size:13px}' +
+    '.iv-sep{width:1px;height:22px;background:var(--iv-line);margin:0 4px}' +
+    '.iv-tbl{width:100%;border-collapse:collapse;font-size:12.5px}.iv-tbl td,.iv-tbl th{padding:5px 6px;border-bottom:1px solid var(--iv-line);text-align:left;vertical-align:top}' +
+    '.iv-tbl th{color:var(--iv-sub);font-weight:600}.iv-tbl tr.sel td{background:rgba(31,95,143,.10)}.iv-tbl tr{cursor:pointer}.iv-num{font-family:ui-monospace,Consolas,monospace;white-space:nowrap}' +
+    '.iv-tl{position:relative;user-select:none}.iv-row{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:center;min-height:24px}' +
+    '.iv-row .lab{font-size:12.5px;color:var(--iv-sub);padding-right:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.iv-row .lab b{color:var(--iv-ink)}' +
+    '.iv-track{position:relative;height:22px;border-bottom:1px dashed var(--iv-line);cursor:pointer}' +
+    '.iv-bar{position:absolute;top:2px;height:18px;border-radius:5px;font-size:11px;line-height:18px;padding:0 5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.iv-bar.mv{background:transparent;border:1.5px solid currentColor;line-height:15px}' +
+    '.iv-ruler{position:relative;height:18px;font:11px ui-monospace,Consolas,monospace;color:var(--iv-sub)}.iv-ruler span{position:absolute;transform:translateX(-50%)}' +
+    '.iv-head{position:absolute;top:0;bottom:0;width:2px;background:#e5484d;pointer-events:none}.iv-slowband{position:absolute;top:0;bottom:0;background:var(--iv-slow);pointer-events:none}' +
+    '.iv-hint{font-size:12.5px;color:var(--iv-sub);margin:0}';
+  var COLORS = { chumdani: '#3d8bd8', giltong: '#e0603a', tira: '#a5743b', charocharo: '#d9a400', doroduck: '#e08a00', fx: '#8a5cd6', phase: '#5f7486' };
+  function el(tag, attrs, html) { var e = document.createElement(tag); for (var k in (attrs || {})) e.setAttribute(k, attrs[k]); if (html != null) e.innerHTML = html; return e; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function mount(root, opt) {
+    var C = global.CharoIntroCast, CP = global.CharoPet, DUR = C.duration, SL = C.slow;
+    if (!document.getElementById('iv-css')) { var st = el('style', { id: 'iv-css' }); st.textContent = CSS; document.head.appendChild(st); }
+    root.innerHTML = '';
+    var box = el('div', { class: 'iv' }); root.appendChild(box);
+    box.innerHTML =
+      '<div class="iv-top">' +
+      ' <div style="display:grid;gap:10px"><div class="iv-stage"><canvas class="iv-cv" role="img" aria-label="로그인 인트로 무대"></canvas><canvas class="iv-ov" aria-hidden="true"></canvas></div>' +
+      '  <div class="iv-ctrl">' +
+      '   <button class="main" data-a="play">▶ 재생</button><button data-a="start" title="처음으로">⏮ 처음</button>' +
+      '   <button data-a="back" title="한 프레임 뒤로 (←)">◀ 1프레임</button><button data-a="fwd" title="한 프레임 앞으로 (→)">1프레임 ▶</button><button data-a="end">끝으로 ⏭</button>' +
+      '   <span class="iv-sep"></span><span class="iv-hint">속도</span>' +
+      '   <button data-sp="1" aria-pressed="true">1×</button><button data-sp="0.5">0.5×</button><button data-sp="0.25">0.25×</button><button data-sp="0.1">0.1×</button>' +
+      '   <span class="iv-sep"></span><label><input type="checkbox" data-o="loop" checked> 반복</label><label><input type="checkbox" data-o="reduce"> 모션 줄이기</label>' +
+      '  </div>' +
+      '  <div class="iv-ctrl"><span class="iv-hint">화면 표시</span>' +
+      '   <label><input type="checkbox" data-o="labels" checked> 이름표·동작</label><label><input type="checkbox" data-o="feet"> 발 위치·앞뒤 순서</label><label><input type="checkbox" data-o="horizon"> 지평선·소실점</label>' +
+      '   <span class="iv-sep"></span><span class="iv-hint">효과 층</span>' +
+      '   <label><input type="checkbox" data-fx="bg" checked> 배경</label><label><input type="checkbox" data-fx="title" checked> 문구</label><label><input type="checkbox" data-fx="bursts" checked> 폭죽</label><label><input type="checkbox" data-fx="confetti" checked> 색종이</label>' +
+      '  </div></div>' +
+      ' <div style="display:grid;gap:10px">' +
+      '  <div class="iv-card"><h3>지금</h3><div><span class="iv-t">0.00초</span><span class="iv-slowtag" hidden>슬로모션</span></div><p class="iv-now">-</p><p class="iv-desc"></p></div>' +
+      '  <div class="iv-card"><h3>캐릭터 상태 (줄을 누르면 무대에 표시)</h3><table class="iv-tbl"><thead><tr><th>캐릭터</th><th>지금 동작</th><th>이동</th></tr></thead><tbody></tbody></table></div>' +
+      ' </div>' +
+      '</div>' +
+      '<div class="iv-card"><h3>시간표 · 누르거나 끌면 그 시점으로 이동 · 노란 띠 = 슬로모션</h3><div class="iv-tl"></div>' +
+      '<p class="iv-hint" style="margin-top:8px">채운 막대 = 캐릭터 동작(파일 안의 동작 이름), 테두리 막대 = 무대에서의 이동(원근 달리기·대형·자리 잡기·정렬). 이 화면은 보기 전용이에요. 동작을 고칠 때는 각 캐릭터 탭을 써요.</p></div>';
+    var q = function (s) { return box.querySelector(s); }, qa = function (s) { return box.querySelectorAll(s); };
+    var cv = q('.iv-cv'), ov = q('.iv-ov'), octx = ov.getContext('2d');
+    C.cast.forEach(function (c) { if (opt.dataFor) { var d = opt.dataFor(c.id); if (d) c.data = d; } if (!c.data && opt.root != null) c.file = opt.root + c.file.replace(/^\.\.\//, ''); });
+    var mobile = Math.min(screen.width, innerWidth) < 600;
+    var fx = CharoWelcomeFX.create({ meta: opt.fxMeta, base: opt.base || '', data: opt.fxData, slow: SL, mobile: mobile });
+    var intro = CharoIntro.create({ canvas: cv, duration: DUR, cast: C.cast, phases: C.phases, fx: fx,
+      onError: function (e) { q('.iv-now').textContent = '불러오지 못했어요'; q('.iv-desc').textContent = String(e.message || e); } });
+    var T = 0, playing = false, speed = 1, loop = true, reduce = false, sel = null, last = 0, show = { labels: true, feet: false, horizon: false };
+    global.__ivIntro = intro;
+
+    // ── 시간표 ──
+    var tl = q('.iv-tl');
+    function pct(t) { return (t / DUR * 100) + '%'; }
+    function bar(track, t0, t1, text, color, cls) {
+      var b = el('div', { class: 'iv-bar' + (cls ? ' ' + cls : ''), title: text + ' (' + t0.toFixed(2) + '~' + t1.toFixed(2) + '초)' }, esc(text));
+      b.style.left = pct(t0); b.style.width = 'calc(' + ((t1 - t0) / DUR * 100) + '% - 2px)';
+      if (cls === 'mv') b.style.color = color; else b.style.background = color;
+      track.appendChild(b);
+    }
+    function row(label, color) { var r = el('div', { class: 'iv-row' }), lab = el('div', { class: 'lab' }, label), tr = el('div', { class: 'iv-track' }); r.appendChild(lab); r.appendChild(tr); tl.appendChild(r); return tr; }
+    function buildTimeline() {
+      tl.innerHTML = '';
+      var ru = el('div', { class: 'iv-row' }); ru.appendChild(el('div', { class: 'lab' }, '')); var rr = el('div', { class: 'iv-ruler' });
+      for (var t = 0; t <= DUR + 1e-9; t += 0.5) { var s = el('span', null, t.toFixed(1)); s.style.left = pct(t); rr.appendChild(s); }
+      ru.appendChild(rr); tl.appendChild(ru);
+      var tr = row('<b>장면</b>');
+      C.phases.forEach(function (p, i) { var t1 = (C.phases[i + 1] || [DUR])[0]; bar(tr, p[0], t1, p[1], i % 2 ? '#7a8d9e' : COLORS.phase); });
+      var fxt = fx.timeline();
+      var tA = row('<b>효과</b> 배경·문구'), tB = row('폭죽 왼쪽'), tB2 = row('폭죽 오른쪽'), tCf = row('색종이');
+      fxt.forEach(function (f) { var tgt = /폭죽 왼/.test(f[0]) ? tB : /폭죽 오/.test(f[0]) ? tB2 : /색종이/.test(f[0]) ? tCf : tA; bar(tgt, f[1], f[2], f[0], f[0] === '정리(사라짐)' ? '#b9a3e6' : COLORS.fx); });
+      C.cast.forEach(function (c) {
+        var col = COLORS[c.id] || '#888', names = {};
+        (c.P ? c.P.clips : []).forEach(function (k) { names[k.id] = k.name; });
+        var segs = (reduce && c.reducedSegs) ? c.reducedSegs : c.segs;
+        var t1 = row('<b>' + esc(c.name) + '</b> 동작');
+        if (!segs.length) bar(t1, 0, DUR, '대기 동작만', '#9aa7b2');
+        segs.forEach(function (s) { bar(t1, s.t0, s.t1, (names[s.clip] || s.clip) + (s.rate && s.rate !== 1 ? ' · ' + (s.rate > 1 ? s.rate + '배 빠르게' : '') : ''), col); });
+        if (c.steps) { var t3 = row('세부'); c.steps.forEach(function (m) { bar(t3, m[0], m[1], m[2], col, 'mv'); }); }
+        var t2 = row('이동');
+        (c.moves || []).forEach(function (m) { bar(t2, m[0], m[1], m[2], col, 'mv'); });
+      });
+      var band = el('div', { class: 'iv-slowband' }); band.style.left = 'calc(118px + (100% - 118px) * ' + (SL[0] / DUR) + ')'; band.style.width = 'calc((100% - 118px) * ' + ((SL[1] - SL[0]) / DUR) + ')'; tl.appendChild(band);
+      head = el('div', { class: 'iv-head' }); tl.appendChild(head);
+    }
+    var head = null;
+    function seekFromEvent(e) {
+      var r = tl.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left - 118;
+      var w = r.width - 118; if (w <= 0) return; T = Math.max(0, Math.min(DUR, x / w * DUR)); playing = false; syncPlay();
+    }
+    var dragging = false;
+    tl.addEventListener('pointerdown', function (e) { dragging = true; tl.setPointerCapture(e.pointerId); seekFromEvent(e); });
+    tl.addEventListener('pointermove', function (e) { if (dragging) seekFromEvent(e); });
+    tl.addEventListener('pointerup', function () { dragging = false; });
+
+    // ── 조작 ──
+    function syncPlay() { var b = q('[data-a="play"]'); b.textContent = playing ? '❚❚ 멈춤' : '▶ 재생'; }
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var a = b.getAttribute('data-a'), sp = b.getAttribute('data-sp');
+      if (a === 'play') { if (!playing && T >= DUR - 1e-6) T = 0; playing = !playing; syncPlay(); }
+      if (a === 'start') { T = 0; }
+      if (a === 'end') { T = DUR; playing = false; syncPlay(); }
+      if (a === 'back' || a === 'fwd') { playing = false; syncPlay(); T = Math.max(0, Math.min(DUR, T + (a === 'fwd' ? 1 : -1) / 30)); }
+      if (sp) { speed = +sp; Array.prototype.forEach.call(qa('[data-sp]'), function (x) { x.setAttribute('aria-pressed', String(x === b)); }); }
+    });
+    box.addEventListener('change', function (e) {
+      var i = e.target, o = i.getAttribute('data-o'), f = i.getAttribute('data-fx');
+      if (o === 'loop') loop = i.checked;
+      if (o === 'reduce') { reduce = i.checked; intro.setReduce(reduce); buildTimeline(); }
+      if (o && show.hasOwnProperty(o)) show[o] = i.checked;
+      if (f) fx.layers[f] = i.checked;
+    });
+    document.addEventListener('keydown', function (e) {
+      if (!box.isConnected || /INPUT|TEXTAREA|SELECT/.test((e.target.tagName || ''))) return;
+      if (e.code === 'Space') { e.preventDefault(); q('[data-a="play"]').click(); }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); q(e.key === 'ArrowRight' ? '[data-a="fwd"]' : '[data-a="back"]').click(); }
+    });
+    var tbody = q('.iv-tbl tbody');
+    tbody.addEventListener('click', function (e) { var tr = e.target.closest('tr'); if (!tr) return; sel = sel === tr.dataset.id ? null : tr.dataset.id; });
+
+    function curSeg(c, t) { var segs = (reduce && c.reducedSegs) ? c.reducedSegs : c.segs, s = null; segs.forEach(function (x) { if (t >= x.t0 - 1e-9 && t <= x.t1 + 1e-9) s = x; }); return s; }
+    function curStep(c, t) { var m = null; (c.steps || []).forEach(function (x) { if (t >= x[0] && t <= x[1]) m = x; }); return m; }
+    function curMove(c, t) { var m = null; (c.moves || []).forEach(function (x) { if (t >= x[0] && t <= x[1]) m = x; }); return m; }
+    function placeOf(c) { return (reduce && c.reducedPlace) ? c.reducedPlace : c.place; }
+
+    function drawOverlay() {
+      var r = ov.getBoundingClientRect(), dpr = global.devicePixelRatio || 1, w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+      if (ov.width !== w || ov.height !== h) { ov.width = w; ov.height = h; }
+      var s = Math.min(w / 1000, h / 600);
+      octx.setTransform(1, 0, 0, 1, 0, 0); octx.clearRect(0, 0, w, h); octx.setTransform(s, 0, 0, s, 0, 0);
+      if (show.horizon) {
+        var vp = C.vanishingPoint; octx.strokeStyle = 'rgba(255,255,255,.55)'; octx.setLineDash([6, 6]); octx.lineWidth = 1.5 / s * dpr;
+        octx.beginPath(); octx.moveTo(0, vp[1]); octx.lineTo(1000, vp[1]); octx.stroke(); octx.setLineDash([]);
+        octx.fillStyle = '#ff5d5d'; octx.beginPath(); octx.arc(vp[0], vp[1], 5, 0, 7); octx.fill();
+        octx.fillStyle = '#fff'; octx.font = '600 13px sans-serif'; octx.fillText('소실점 · 지평선', vp[0] + 9, vp[1] - 7);
+      }
+      var order = (intro.info().last.__order || []);
+      C.cast.forEach(function (c) {
+        if (!c.P) return;
+        var pl = CharoIntro.samplePlace(placeOf(c), Math.min(T, DUR)); if (!(pl[3] > 6)) return;
+        var x = pl[1], y = pl[2], hh = pl[3], col = COLORS[c.id] || '#fff';
+        if (sel === c.id) { octx.strokeStyle = col; octx.lineWidth = 3; octx.beginPath(); octx.ellipse(x, y - hh * 0.5, hh * 0.55, hh * 0.62, 0, 0, 7); octx.stroke(); }
+        if (show.feet) {
+          octx.fillStyle = col; octx.beginPath(); octx.arc(x, y, 4, 0, 7); octx.fill();
+          octx.fillStyle = '#fff'; octx.font = '700 12px sans-serif'; octx.fillText('앞뒤 ' + (order.indexOf(c.id) + 1), x + 7, y + 4);
+        }
+        if (show.labels && hh > 30) {
+          var sg = curSeg(c, T), nm = sg ? ((c.P.clips.filter(function (k) { return k.id === sg.clip; })[0] || {}).name || sg.clip) : '대기';
+          var stp = curStep(c, T); if (stp) nm = stp[2]; else if (/^인트로 \(/.test(nm)) nm = '대기';
+          nm = nm.replace(/^인트로\s*/, '').replace(/\s*\(.*\)$/, '');
+          var txt = c.name + ' · ' + nm; octx.font = '600 12px sans-serif'; var tw = octx.measureText(txt).width + 12, ly = y - hh - 12;
+          octx.fillStyle = 'rgba(16,32,46,.82)'; octx.beginPath(); octx.roundRect ? octx.roundRect(x - tw / 2, ly - 15, tw, 20, 6) : octx.rect(x - tw / 2, ly - 15, tw, 20); octx.fill();
+          octx.fillStyle = col; octx.fillRect(x - tw / 2, ly - 15, 4, 20); octx.fillStyle = '#fff'; octx.fillText(txt, x - tw / 2 + 8, ly);
+        }
+      });
+    }
+    function updatePanel() {
+      q('.iv-t').textContent = T.toFixed(2) + '초';
+      q('.iv-slowtag').hidden = !(T >= SL[0] && T <= SL[1]);
+      var ph = C.phases[0]; C.phases.forEach(function (p) { if (T >= p[0]) ph = p; });
+      q('.iv-now').textContent = ph[1]; q('.iv-desc').textContent = ph[2] || '';
+      var rows = C.cast.map(function (c) {
+        var sg = curSeg(c, T), mv = curMove(c, T), nm = '대기 동작';
+        if (sg && c.P) { var k = c.P.clips.filter(function (x) { return x.id === sg.clip; })[0]; var stp = curStep(c, T); nm = (k ? k.name.replace(/\s*\(.*\)$/, '') : sg.clip) + (stp ? ' → <b>' + esc(stp[2]) + '</b>' : '') + ' <span class="iv-num">' + ((sg.from || 0) + (T - sg.t0) * (sg.rate || 1)).toFixed(2) + '초</span>'; }
+        return '<tr data-id="' + c.id + '"' + (sel === c.id ? ' class="sel"' : '') + '><td><b style="color:' + (COLORS[c.id] || '') + '">●</b> ' + esc(c.name) + '</td><td>' + nm + '</td><td>' + esc(mv ? mv[2] : '-') + '</td></tr>';
+      }).join('');
+      if (tbody.__last !== rows) { tbody.innerHTML = rows; tbody.__last = rows; }
+      if (head) head.style.left = 'calc(118px + (100% - 118px) * ' + (T / DUR) + ')';
+    }
+    function frame(now) {
+      requestAnimationFrame(frame);
+      var dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
+      if (playing) { T += dt * speed; if (T >= DUR) { if (loop) T = 0; else { T = DUR; playing = false; syncPlay(); } } }
+      intro.seek(T); drawOverlay(); updatePanel();
+    }
+    intro.ready.then(function () { buildTimeline(); requestAnimationFrame(frame); }, function () {});
+    return { intro: intro, fx: fx, seek: function (t) { T = t; }, state: function () { return { T: T, playing: playing, speed: speed }; } };
+  }
+  global.CharoIntroViewer = { mount: mount };
+})(window);
+
+</script>
+<script>
 (function () {
 'use strict';
 var CP = window.CharoPet;
+var EMBED_ALL = /*@@SITE_JSON@@*/null;   // Claude 안 에디터용: 게시할 때의 사이트 캐릭터 파일들
+var INTRO_FX = /*@@INTRO_FX@@*/null;     // Claude 안 에디터용: 인트로 효과 그림
 var $ = function (id) { return document.getElementById(id); };
 var PROPS = CP.PROPS;
 var LBL = {
@@ -1140,7 +1725,8 @@ var CHARS = [
   { id: 'chumdani', name: '첨다니', file: 'chumdani/chumdani.json' },
   { id: 'tira', name: '티라', file: 'tira_v3/tira_v3.json', store: 'tira_v3' },   // v3(팔 없음): 예전 v2 자동 보관과 섞이지 않게 보관 칸을 새로
   { id: 'giltong', name: '길통이', file: 'giltong/giltong.json' },
-  { id: 'doroduck', name: '도로덕', file: 'doroduck/doroduck.json' }
+  { id: 'doroduck', name: '도로덕', file: 'doroduck/doroduck.json' },
+  { id: 'intro', name: '로그인 인트로', file: 'intro/intro-cast.js', viewer: true }   // 보기 전용: 다섯 친구가 한 시간축에서 움직이는 과정을 봄
 ];
 var CHAR = (function () {
   var h = (location.hash || '').replace('#', ''), c = null;
@@ -1149,8 +1735,27 @@ var CHAR = (function () {
   return c || CHARS[0];
 })();
 try { localStorage.setItem('charoMotionEditor.char', CHAR.id); } catch (e) {}
+if (CHAR.viewer) { startIntroViewer(); return; }
+// 로그인 인트로 보기 탭: 편집 화면 대신 인트로 재생·시간표·상태를 보여 줌(고치지 않음)
+function startIntroViewer() {
+  document.body.classList.add('viewer-mode');
+  document.title = '로그인 인트로 보기';
+  $('edTitle').textContent = '로그인 인트로 보기';
+  var sm = document.querySelector('.brand small'); if (sm) sm.textContent = '보기 전용 · 시간표 · 느리게 보기';
+  var nav = $('charTabs');
+  nav.innerHTML = CHARS.map(function (c) { return '<a href="#' + c.id + '" data-id="' + c.id + '"' + (c.id === CHAR.id ? ' aria-current="page"' : '') + '>' + c.name + '</a>'; }).join('');
+  nav.addEventListener('click', function (e) { var a = e.target.closest('a'); if (!a) return; e.preventDefault(); if (a.dataset.id === CHAR.id) return; location.hash = a.dataset.id; location.reload(); });
+  window.addEventListener('hashchange', function () { var h = location.hash.replace('#', ''); if (h && h !== CHAR.id) location.reload(); });
+  var host = document.createElement('div'); host.id = 'introViewer'; document.querySelector('.app').appendChild(host);
+  var onSite = !window.claude && /^https?:$/.test(location.protocol);
+  var metaP = INTRO_FX ? Promise.resolve(INTRO_FX.meta) : fetch('intro/assets/fx-assets.json').then(function (r) { return r.json(); });
+  metaP.then(function (meta) {
+    window.CharoIntroViewer.mount(host, { fxMeta: meta, fxData: INTRO_FX ? INTRO_FX.data : null, base: 'intro/', root: '',
+      dataFor: function (id) { return (!onSite && EMBED_ALL && EMBED_ALL[id]) ? JSON.parse(JSON.stringify(EMBED_ALL[id])) : null; } });
+  }).catch(function () { host.textContent = '인트로 파일을 불러오지 못했어요.'; });
+}
 var FILE_NAME = CHAR.file.split('/').pop();
-var STORE_KEY = CHAR.id === 'charocharo' ? 'charoMotionEditor.v1' : 'charoMotionEditor.v1.' + (CHAR.store || CHAR.id);
+var STORE_KEY = 'charoMotionEditor.v2.' + (CHAR.store || CHAR.id);   // 2026-10-17 동작 정리 뒤 새 보관 칸(예전 v1 자동 보관은 쓰지 않음)
 function loadSaved() {
   try {
     var raw = localStorage.getItem(STORE_KEY);
@@ -2367,7 +2972,7 @@ CP.preload(P).then(function () { drawStage(); drawSitePreview(); renderParts(); 
 // 사이트에서 열었을 때: 사이트에 올라간 캐릭터 파일 불러오기
 var ON_SITE = !window.claude && /^https?:$/.test(location.protocol);
 // Claude 안에서 여는 에디터는 외부 사이트를 읽을 수 없어서, 게시할 때의 사이트 캐릭터를 함께 넣어 둠
-var EMBED = /*@@SITE_JSON@@*/null;
+var EMBED = EMBED_ALL;
 function loadSiteVersion(auto) {
   var src = ON_SITE
     ? fetch(CHAR.file, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })

@@ -23,13 +23,14 @@
   $('bSkip').onclick = function () { intro.skip(); };
   $('tReduce').onchange = function () { intro.setReduce(this.checked); };
   $('scrub').oninput = function () { intro.seek(+this.value); };
-  var FACE = { '0,0,0': 'A 기본 미소', '3,3,1': 'B 신나서 질끈' };
+  var FACE = null;
+  function faces() { if (FACE) return FACE; var ch = C.cast.filter(function (c) { return c.id === 'charocharo'; })[0]; if (!ch || !ch.P) return {}; FACE = {}; ch.P.faces.forEach(function (f) { if (f.id === 'f00') FACE[[f.img.eyeL, f.img.browL, f.img.mouth].join(',')] = 'A 기본 미소'; if (f.id === 'f22') FACE[[f.img.eyeL, f.img.browL, f.img.mouth].join(',')] = 'B 신나서 질끈'; }); return FACE; }   // 표정 번호는 데이터에서
   (function hud() {
     requestAnimationFrame(hud);
     var i = intro.info(), T = Math.min(i.T, C.duration), ch = i.last.charocharo;
     $('hT').textContent = (i.state === 'wait' ? '끝 · 대기 ' : '') + T.toFixed(2) + '초';
     $('hPh').textContent = i.state === 'wait' ? '로그인 대기' : intro.phase(T);
-    if (ch) { var f = ch.fp; $('hFace').textContent = '차로차로 표정: ' + (FACE[[f.eyeL.img, f.browL.img, f.mouth.img].join(',')] || '?'); }
+    if (ch) { var f = ch.fp; $('hFace').textContent = '차로차로 표정: ' + (faces()[[f.eyeL.img, f.browL.img, f.mouth.img].join(',')] || '?'); }
     if (i.state === 'play' && !i.paused) { $('scrub').value = T; } $('hS').textContent = (+$('scrub').value).toFixed(2);
   })();
   }

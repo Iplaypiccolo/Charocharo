@@ -24,7 +24,9 @@ def put(p, clip):
     p['clips'] = [x for x in p['clips'] if x['id'] != clip['id']] + [clip]
 REPORT = {}
 for f, run, root, nid in [('giltong/giltong.json', 'g_run', 'body', 'g_run_i'), ('doroduck/doroduck.json', 'd_run', 'body', 'd_run_i'), ('chumdani/chumdani.json', 'c_run', 'rig', 'c_run_i')]:
-    p = load(f); src = [c for c in p['clips'] if c['id'] == run][0]
+    p = load(f); srcs = [c for c in p['clips'] if c['id'] == run]
+    if not srcs: REPORT[nid] = '원본 달리기 없음(에디터 정리 뒤) → 기존 ' + nid + ' 유지'; continue   # 정리 뒤에는 이미 만든 동작을 그대로 둠
+    src = srcs[0]
     c = in_place(src, root, nid, '인트로 제자리 달리기 (원근은 인트로 재생기)'); put(p, c)
     ys = [k['v'] for k in c['tracks'][root]['y']]; REPORT[nid] = dict(y_range=[min(ys), max(ys)])
     if f.startswith('chumdani'):
@@ -44,7 +46,9 @@ for f, run, root, nid in [('giltong/giltong.json', 'g_run', 'body', 'g_run_i'), 
         put(p, j); REPORT['c_jump_i'] = 'added'
     save(f, p)
 # 도로덕: 환영 뒤 균형 회복 + 팻말 내리기까지만(0~0.85초). 원래 마무리의 '작아져 정렬'은 인트로 재생기가 하므로 몸통 이동·축소는 0.7초 이후 빼고 고정
-p = load('doroduck/doroduck.json'); src = [c for c in p['clips'] if c['id'] == 'd_finish'][0]
+p = load('doroduck/doroduck.json'); _s = [c for c in p['clips'] if c['id'] == 'd_finish']
+src = _s[0] if _s else None
+if src is None: print(json.dumps(REPORT, ensure_ascii=False)); raise SystemExit   # 정리 뒤: d_finish_i·팻말 배율은 이미 반영됨
 c = copy.deepcopy(src); c['id'] = 'd_finish_i'; c['name'] = '인트로 균형 회복·팻말 내림'; c['intro'] = True; c['dur'] = 0.85
 for part, tr in c['tracks'].items():
     for prop, ks in list(tr.items()):

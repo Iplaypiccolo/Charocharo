@@ -15,8 +15,8 @@ def idx(part, name):
 FACE_A = dict(eyeL=idx('eyeL', '기본'), eyeR=idx('eyeR', '기본'), browL=idx('browL', '기본 눈썹'), browR=idx('browR', '기본 눈썹'), mouth=idx('mouth', '기본 미소'))
 FACE_B = dict(eyeL=idx('eyeL', '질끈 > <'), eyeR=idx('eyeR', '질끈 > <'), browL=idx('browL', '질끈 > < 눈썹'), browR=idx('browR', '질끈 > < 눈썹'),
               mouth=idx('mouth', '폭소 (이·혀) · 01 대폭소'))
-assert FACE_A == dict(eyeL=0, eyeR=0, browL=0, browR=0, mouth=0) and FACE_B == dict(eyeL=3, eyeR=3, browL=3, browR=3, mouth=1), (FACE_A, FACE_B)
-f00 = [f for f in p['faces'] if f['id'] == 'f00'][0]; assert f00['img'] == FACE_A
+# (2026-10-17 에디터 정리로 그림 번호가 바뀜: 처음엔 A=모두 0, B=눈·눈썹 3·입 1 → 정리 뒤 B=눈·눈썹 2·입 1. 번호는 이름으로만 찾음)
+f00 = [f for f in p['faces'] if f['id'] == 'f00'][0]; assert all(f00['img'][k] == v for k, v in FACE_A.items())
 
 # 화면에서 보이는 몸통 높이 H(무대 px) = 몸통 그림 높이 × 몸통 배율
 H = parts['body']['images'][0]['h'] * parts['body']['rest']['sy']          # ≈ 233.7

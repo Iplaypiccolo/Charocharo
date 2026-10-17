@@ -60,14 +60,17 @@
         ctx.drawImage(IM[c.k], -im.anchor[0], -im.anchor[1], im.w, im.h); ctx.restore();
       });
     }
+    var layers = { bg: true, title: true, bursts: true, confetti: true };   // 보기용 켜고 끄기(인트로 보기 탭)
     var api = {
+      layers: layers,
+      timeline: function () { var g = function (t) { return S0 + t * K; }; return [['배경', g(0), g(1.6)], ['문구 펼침', g(0), g(0.32)], ['문구', g(0.32), g(1.6)], ['폭죽 왼쪽', g(0.08), g(0.65)], ['폭죽 오른쪽', g(0.20), g(0.75)], ['색종이', g(0), g(1.6)], ['정리(사라짐)', g(1.35), g(1.6)]]; },
       ready: ready, failed: failed, active: function (T) { var t = local(T); return t >= 0 && t <= 1.6; },
       drawBack: function (ctx, T) {
         var t = local(T); if (t < 0 || t > 1.6) return;
         var a = fadeAll(t);
-        ctx.save(); ctx.globalAlpha = a; drawImg(ctx, 'bg', BG.x, BG.y, BG.w, BG.h); ctx.restore();
+        if (layers.bg) { ctx.save(); ctx.globalAlpha = a; drawImg(ctx, 'bg', BG.x, BG.y, BG.w, BG.h); ctx.restore(); }
         if (reduce) return;
-        BURSTS.forEach(function (b) {
+        if (layers.bursts) BURSTS.forEach(function (b) {
           b.rays.forEach(function (ry) {
             var tt = t - b.t0 - ry.d, life = b.t1 - b.t0; if (tt < 0 || tt > life || !IM[ry.k]) return;
             var u = tt / 0.5, rin = 4 + 26 * easeOut(u) * ry.out + 6 * Math.max(0, tt - 0.5), grow = 0.35 + 0.65 * easeOut(tt / 0.18);
@@ -79,10 +82,11 @@
             ctx.scale(s, s); ctx.drawImage(IM[ry.k], -im.anchor[0], -im.anchor[1], im.w, im.h); ctx.restore();
           });
         });
-        ctx.save(); ctx.globalAlpha = a; drawConf(ctx, t, false); ctx.restore();
+        if (layers.confetti) { ctx.save(); ctx.globalAlpha = a; drawConf(ctx, t, false); ctx.restore(); }
       },
       drawFront: function (ctx, T) {
         var t = local(T); if (t < 0 || t > 1.6 || !IM.title) return;
+        if (!layers.title) { if (!reduce && layers.confetti) { ctx.save(); ctx.globalAlpha = 1 - smooth((t - 1.35) / 0.25); drawConf(ctx, t, true); ctx.restore(); } return; }
         var a = 1 - smooth((t - 1.35) / 0.25), im = M.title;
         var sc = reduce ? 1 : (t < 0.2 ? 0.88 + 0.16 * smooth(t / 0.2) : 1.04 - 0.04 * smooth((t - 0.2) / 0.12));   // 0.88 → 1.04 → 1.0 한 번만
         var w = TITLE.w * sc, h = w * im.h / im.w, x = TITLE.cx - w / 2, y = TITLE.cy - h / 2;
@@ -90,7 +94,7 @@
         ctx.save(); ctx.globalAlpha = reduce ? Math.min(a, smooth(t / 0.2)) : a;
         ctx.beginPath(); ctx.rect(x - 4, y - 4, (w + 8) * rv, h + 8); ctx.clip();
         ctx.drawImage(IM.title, x, y, w, h); ctx.restore();
-        if (!reduce) { ctx.save(); ctx.globalAlpha = a; drawConf(ctx, t, true); ctx.restore(); }
+        if (!reduce && layers.confetti) { ctx.save(); ctx.globalAlpha = a; drawConf(ctx, t, true); ctx.restore(); }
       },
       boxes: function () { var h = TITLE.w * M.title.h / M.title.w; return { title: [TITLE.cx - TITLE.w / 2, TITLE.cy - h / 2, TITLE.cx + TITLE.w / 2, TITLE.cy + h / 2], bg: [BG.x, BG.y, BG.x + BG.w, BG.y + BG.h], bursts: BURSTS.map(function (b) { return [b.cx, b.cy]; }) }; },
       setReduce: function (r) { reduce = !!r; }
