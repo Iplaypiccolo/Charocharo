@@ -64,6 +64,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   gap: 1px;
   background: var(--line);
 }
+.chars { display: flex; gap: 4px; flex-wrap: wrap; }
+.chars a { font: 600 13px var(--sans, inherit); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); color: inherit; text-decoration: none; background: transparent; }
+.chars a[aria-current="page"] { background: var(--ink, #10243a); color: var(--bg, #fff); border-color: transparent; }
+.chars a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .bar { grid-area: bar; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   background: var(--panel); }
@@ -252,12 +256,13 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
   <header class="bar">
     <div class="brand">
       <div class="stripe" aria-hidden="true"></div>
-      <div><h1>차로차로 모션 에디터</h1><small>파츠 · 키프레임 · 반응 규칙</small></div>
+      <div><h1 id="edTitle">차로차로 모션 에디터</h1><small>파츠 · 키프레임 · 반응 규칙</small></div>
     </div>
+    <nav class="chars" id="charTabs" aria-label="캐릭터"></nav>
     <div class="bar-actions">
       <button class="btn" id="bUndo" title="되돌리기 (Ctrl+Z)">되돌리기</button>
       <button class="btn" id="bRedo" title="다시 하기 (Ctrl+Shift+Z)">다시 하기</button>
-      <button class="btn" id="bSiteLoad" hidden title="사이트에 올라가 있는 charo-pet.json을 불러와요">사이트 버전 불러오기</button>
+      <button class="btn" id="bSiteLoad" hidden title="사이트에 올라가 있는 이 캐릭터 파일을 불러와요">사이트 버전 불러오기</button>
       <label class="btn" for="fLoad">불러오기</label>
       <input type="file" id="fLoad" accept=".json,application/json" hidden>
       <button class="btn primary" id="bSave">저장 (.json)</button>
@@ -337,7 +342,7 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
 <div class="dlg" id="dlg" hidden role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
   <div class="dlg-card">
     <h2 id="dlgTitle">파일로 저장하기</h2>
-    <p class="hint">이 화면에서는 파일 저장이 막혀 있어요. 아래 내용을 복사해서 메모장에 붙여 넣고 <b>charo-pet.json</b> 이름으로 저장하세요.</p>
+    <p class="hint">이 화면에서는 파일 저장이 막혀 있어요. 아래 내용을 복사해서 메모장에 붙여 넣고 <b id="dlgName">charo-pet.json</b> 이름으로 저장하세요.</p>
     <textarea id="dlgText" readonly aria-label="저장할 내용"></textarea>
     <div class="inline"><button class="btn primary" id="dlgCopy">전체 복사</button><button class="btn" id="dlgClose">닫기</button></div>
   </div>
@@ -523,7 +528,7 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13
   }
   function preload(p) {
     var ids = [];
-    p.parts.forEach(function (pt) { pt.images.forEach(function (v) { ids.push(v.asset); }); });
+    p.parts.forEach(function (pt) { pt.images.forEach(function (v) { if (ids.indexOf(v.asset) < 0) ids.push(v.asset); }); });   // 같은 그림을 여러 파츠가 써도 한 번만
     return Promise.all(ids.map(function (id) {
       return new Promise(function (res) {
         var src = p.assets && p.assets[id];
@@ -1129,7 +1134,23 @@ function normalize(p) {
 }
 
 // ---------- 상태 ----------
-var STORE_KEY = 'charoMotionEditor.v1';
+// 캐릭터 탭: 캐릭터마다 파일·자동 보관 칸을 따로 씀. 탭을 바꾸면 지금 작업을 보관하고 그 캐릭터로 다시 열림
+var CHARS = [
+  { id: 'charocharo', name: '차로차로', file: 'charo-pet.json' },
+  { id: 'chumdani', name: '첨다니', file: 'chumdani/chumdani.json' },
+  { id: 'tira', name: '티라', file: 'tira_v2/tira_v2.json' },
+  { id: 'giltong', name: '길통이', file: 'giltong/giltong.json' },
+  { id: 'doroduck', name: '도로덕', file: 'doroduck/doroduck.json' }
+];
+var CHAR = (function () {
+  var h = (location.hash || '').replace('#', ''), c = null;
+  CHARS.forEach(function (x) { if (x.id === h) c = x; });
+  if (!c) { try { var l = localStorage.getItem('charoMotionEditor.char'); CHARS.forEach(function (x) { if (x.id === l) c = x; }); } catch (e) {} }
+  return c || CHARS[0];
+})();
+try { localStorage.setItem('charoMotionEditor.char', CHAR.id); } catch (e) {}
+var FILE_NAME = CHAR.file.split('/').pop();
+var STORE_KEY = CHAR.id === 'charocharo' ? 'charoMotionEditor.v1' : 'charoMotionEditor.v1.' + CHAR.id;
 function loadSaved() {
   try {
     var raw = localStorage.getItem(STORE_KEY);
@@ -2237,7 +2258,7 @@ function browserDownload(data) {
   try {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
-    a.download = 'charo-pet.json';
+    a.download = FILE_NAME;
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
     return true;
@@ -2246,10 +2267,10 @@ function browserDownload(data) {
 $('bSave').addEventListener('click', function () {
   var data = exportJSON();
   if (DL) {
-    DL.save({ filename: 'charo-pet.json', data: data }).then(function () { toast('charo-pet.json을 저장했어요'); })
+    DL.save({ filename: FILE_NAME, data: data }).then(function () { toast(FILE_NAME + '을 저장했어요'); })
       .catch(function (err) { if (err && err.code === 'declined') toast('저장을 취소했어요'); else openDialog(data); });
   } else if (!IN_CLAUDE && browserDownload(data)) {
-    toast('charo-pet.json을 내려받았어요');
+    toast(FILE_NAME + '을 내려받았어요');
   } else openDialog(data);
 });
 function openDialog(data) { $('dlgText').value = data; $('dlg').hidden = false; $('dlgCopy').focus(); }
@@ -2349,8 +2370,8 @@ var ON_SITE = !window.claude && /^https?:$/.test(location.protocol);
 var EMBED = /*@@SITE_JSON@@*/null;
 function loadSiteVersion(auto) {
   var src = ON_SITE
-    ? fetch('charo-pet.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
-    : Promise.resolve(EMBED ? JSON.parse(JSON.stringify(EMBED)) : null);
+    ? fetch(CHAR.file, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
+    : Promise.resolve(EMBED && EMBED[CHAR.id] ? JSON.parse(JSON.stringify(EMBED[CHAR.id])) : null);
   return src
     .then(function (p) {
       if (!p) { if (!auto) toast('사이트 파일을 찾지 못했어요'); return; }
@@ -2363,6 +2384,20 @@ function loadSiteVersion(auto) {
     })
     .catch(function () { if (!auto) toast('사이트 파일을 불러오지 못했어요'); });
 }
+// 탭 그리기
+(function () {
+  var nav = $('charTabs');
+  nav.innerHTML = CHARS.map(function (c) { return '<a href="#' + c.id + '" data-id="' + c.id + '"' + (c.id === CHAR.id ? ' aria-current="page"' : '') + '>' + c.name + '</a>'; }).join('');
+  nav.addEventListener('click', function (e) {
+    var a = e.target.closest('a'); if (!a) return; e.preventDefault();
+    if (a.dataset.id === CHAR.id) return;
+    try { localStorage.setItem(STORE_KEY, exportJSON()); } catch (err) {}
+    location.hash = a.dataset.id; location.reload();
+  });
+  $('edTitle').textContent = CHAR.name + ' 모션 에디터'; if ($('dlgName')) $('dlgName').textContent = FILE_NAME;
+  document.title = CHAR.name + ' 모션 에디터';
+})();
+window.addEventListener('hashchange', function () { var h = location.hash.replace('#', ''); if (h && h !== CHAR.id && CHARS.some(function (c) { return c.id === h; })) location.reload(); });
 if (ON_SITE || EMBED) {
   $('bSiteLoad').hidden = false;
   $('bSiteLoad').addEventListener('click', function () { loadSiteVersion(false); });

@@ -57,6 +57,16 @@ textarea:focus-visible, a:focus-visible, button:focus-visible { outline: 2px sol
 .pv button[aria-pressed="true"] { background: var(--yellow); border-color: var(--yellow); color: #1D2752; }
 .check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); cursor: pointer; }
 .check input { accent-color: var(--yellow); width: 16px; height: 16px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs button { font: inherit; font-size: 15px; font-weight: 500; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--card); }
+.friend { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 640px) { .friend { grid-template-columns: 1fr; } }
+.fstage { background: var(--bg); border-radius: 14px; display: flex; justify-content: center; }
+.fstage canvas { display: block; max-width: 100%; }
+.fside { display: grid; gap: 10px; min-width: 0; }
+.fside h3 { margin: 0; font: 400 30px/1 var(--f-display); }
+.fside code { font: 12.5px var(--f-num); }
 footer { color: var(--muted); font-size: 13px; text-align: center; }
 footer code { font-family: var(--f-num); }
 </style>
@@ -69,6 +79,25 @@ footer code { font-family: var(--f-num); }
     <p class="lead">화면 오른쪽 아래의 차로차로는 마우스를 눈으로 따라보고, 클릭과 타자, 시간의 흐름에 반응해요.</p>
     <div class="lane" aria-hidden="true"></div>
   </header>
+
+  <section aria-labelledby="h-friends">
+    <h2 id="h-friends">친구들</h2>
+    <p class="hint">로그인 인트로에 함께 나올 다섯 친구예요. 탭을 고르고 버튼으로 동작을 재생해 보세요. 고치려면 '에디터에서 고치기'로 그 캐릭터의 에디터 탭을 열면 돼요.</p>
+    <div class="tabs" id="fTabs" role="tablist" aria-label="캐릭터"></div>
+    <div class="friend">
+      <div class="fstage"><canvas id="fCv" width="360" height="360" role="img" aria-label="선택한 캐릭터 미리보기"></canvas></div>
+      <div class="fside">
+        <h3 id="fName">차로차로</h3>
+        <p class="hint" id="fNote"></p>
+        <div class="pv" id="fBtns"></div>
+        <div class="actions">
+          <a class="btn main" id="fEdit" href="editor.html">에디터에서 고치기</a>
+          <a class="btn" id="fReview" href="#" hidden>검수 결과 보기</a>
+        </div>
+        <p class="hint">캐릭터 파일: <code id="fFile">charo-pet.json</code></p>
+      </div>
+    </div>
+  </section>
 
   <section aria-labelledby="h-preview">
     <h2 id="h-preview">모션 미리보기</h2>
@@ -95,7 +124,7 @@ footer code { font-family: var(--f-num); }
 
   <section aria-labelledby="h-edit">
     <h2 id="h-edit">움직임 고치기</h2>
-    <p class="hint">모션 에디터에서 파츠를 바꾸고 키프레임과 반응 규칙을 수정한 뒤, 저장한 <code>charo-pet.json</code>을 저장소에 덮어쓰면 이 페이지에 반영돼요.</p>
+    <p class="hint">모션 에디터 위쪽의 캐릭터 탭에서 고칠 친구를 고르고, 파츠·키프레임·반응 규칙을 수정해요. 저장하면 그 캐릭터의 파일(차로차로는 <code>charo-pet.json</code>, 첨다니는 <code>chumdani.json</code> 등)이 내려받아지고, 저장소의 같은 자리에 덮어쓰면 이 페이지에 반영돼요. 고친 내용은 캐릭터마다 따로 이 브라우저에 자동 보관돼요.</p>
     <div class="actions">
       <a class="btn main" href="editor.html">모션 에디터 열기</a>
       <a class="btn" href="https://github.com/Iplaypiccolo/Charocharo">GitHub 저장소</a>
@@ -170,5 +199,6 @@ footer code { font-family: var(--f-num); }
 })();
 </script>
 <script src="charo-pet.js" data-src="charo-pet.json" data-mobile="show" defer></script>
+<script src="friends.js" defer></script>
 </body>
 </html>
