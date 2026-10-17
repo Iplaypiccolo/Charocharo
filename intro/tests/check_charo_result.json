@@ -5,25 +5,25 @@
    "0,0,0,0,0"
   ],
   [
-   2.3,
+   2.121,
    "3,3,3,3,1"
   ],
   [
-   4.55,
+   4.3,
    "0,0,0,0,0"
   ]
  ],
- "firstAir": 2.304,
- "faceB_at": 2.3,
- "maxFastWing_dps": 948,
- "maxSlowWing_dps": 135,
+ "firstAir": 2.121,
+ "faceB_at": 2.12,
+ "maxFastWing_dps": 2435,
+ "maxSlowWing_dps": 130,
  "jump_apex_px": 39.7,
  "jump_apex_ratio_H": 0.17,
- "apex_t": 3.3,
+ "apex_t": 3.05,
  "scale_outside_095_105": "none",
  "tira_window_max": {
-  "y": 3,
-  "wing_deg": 18
+  "y": 14,
+  "wing_deg": 16
  },
  "flip_window_max": {
   "y": 0,

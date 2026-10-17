@@ -1,37 +1,74 @@
-/* 로그인 인트로 배치표(검수용). 시간은 모두 같은 시간축(초)입니다.
-   차로차로는 이번 작업의 인트로 전용 동작(i_charo)을 씁니다.
-   다른 친구들은 각자의 확정 동작을 그대로 쓰고 시간만 이 시간축에 맞춰 얹었습니다(파일은 고치지 않음). 티라는 6.7초 인트로 동작을 그대로 씁니다.
-   place: [시각, 발 x, 발 y, 표시 키, 이징] — 논리 화면 1000×600 기준. 정렬 순서: 첨다니–티라–길통이–차로차로–도로덕 */
+/* 로그인 인트로 배치표 (2026-10-17 개정 콘티). 시간은 모두 같은 시간축(초)입니다.
+   0.00     티라만 서 있음(친구들은 아직 안 보임)
+   0.30~    길통이·첨다니·차로차로·도로덕이 지평선의 한 점(소실점)에서 나와 같은 땅 위를 달려오며 커짐(원근)
+   0.30~2.30 티라: 불 뿜기 → 뜨거워 → '아 맞다' → 머리만 돌려 입으로 거꾸로 팻말 꺼냄
+   1.55     첨다니가 먼저 도착 → 1.62 고무공 점프 → 차로차로 위쪽(뒤)에 자리
+   2.30~3.90 친구들이 도착하는 그 순간 슬로모션: '환영합니다!' 문구·배경·폭죽·색종이(welcome-fx.js)
+   3.90~    착지·균형 회복 → 4.20 첨다니가 공중제비로 티라 왼쪽으로
+   5.15~5.85 함께 작아지며 아래 줄로: 첨다니–티라–길통이–차로차로–도로덕 → 로그인 대기
+   place 키: [시각, 발 x, 발 y, 표시 키, 이징, 앞뒤(클수록 앞)] — 논리 화면 1000×600 */
 (function (global) {
   'use strict';
-  var DUR = 6.7, LS = 0.55;                        // 최종 정렬 크기 = 대형 크기 × 0.55
-  var ROW = 585, X = { chumdani: 295, tira: 387, giltong: 485, charocharo: 604, doroduck: 711 };   // 최종 폭(대형 키 × 0.55)과 14px 간격으로 계산
-  function lineup(id, fx, fy, h, hEnd) {          // 5.35~6.05 함께 작아지며 아래 줄로 → 끝까지 유지
-    return [[5.35, fx, fy, h, 'inout'], [6.05, X[id], ROW, hEnd == null ? h * LS : hEnd, 'inout'], [DUR, X[id], ROW, hEnd == null ? h * LS : hEnd, 'linear']];
+  var DUR = 6.3, SLOW = [2.30, 3.90], LS = 0.55, L0 = 5.15, L1 = 5.85;
+  var VP = [500, 336];                      // 소실점 = 겨울 배경 그림의 도로가 모이는 점(배경을 무대 폭에 맞춰 그렸을 때)
+  var ROW = 585, X = { chumdani: 300, tira: 393, giltong: 490, charocharo: 602, doroduck: 705 };   // 최종 폭(대형 키×0.55) + 14px 간격
+  var F = { tira: [300, 525, 175], giltong: [470, 505, 205], charocharo: [690, 528, 138], doroduck: [865, 505, 150],
+            chumLane: [600, 520, 125], chumPerch: [736, 405, 120], chumSide: [150, 522, 125] };
+  // 원근 달리기: 지평선의 점(배율 s0)에서 제자리(배율 1)까지. 배율은 지수적으로 커짐(일정한 속도로 다가올 때처럼)
+  function run(f, t0, t1, s0, drift) {
+    var k = [[0, VP[0], VP[1], 0, 'linear', 0], [t0 - 0.001, VP[0], VP[1], 0, 'linear', 0]];
+    for (var t = t0; t <= t1 + 1e-9; t = Math.round((t + 0.05) * 1000) / 1000) {
+      var u = Math.min(1, (t - t0) / (t1 - t0)), s = Math.exp(Math.log(s0) * (1 - u));
+      k.push([t, VP[0] + (f[0] - VP[0]) * s, VP[1] + (f[1] - VP[1]) * s, f[2] * s, 'linear', s]);
+    }
+    if (drift) {   // 슬로모션 동안 아주 조금 더 앞으로 밀려옴(멈춰 서지 않은 느낌)
+      var d = drift; k.push([SLOW[1], VP[0] + (f[0] - VP[0]) * d, VP[1] + (f[1] - VP[1]) * d, f[2] * d, 'out', d]);
+      k.push([4.30, f[0], f[1], f[2], 'inout', 1]);
+    }
+    return k;
   }
+  function lineup(id, f, hEnd, dep) {
+    var h = hEnd == null ? f[2] * LS : hEnd;
+    return [[L0, f[0], f[1], f[2], 'inout', dep], [L1, X[id], ROW, h, 'inout', dep], [DUR, X[id], ROW, h, 'linear', dep]];
+  }
+  // 첨다니: 0.30 출발 → 1.55 먼저 도착(자기 줄: 길통이와 차로차로 사이) → 1.62 점프 시작(납작) → 1.86~2.16 공중 → 차로차로 위쪽(뒤)
+  var cl = F.chumLane, cp = F.chumPerch, cs = F.chumSide;
+  var chum = run(cl, 0.30, 1.55, 0.03).concat([[1.84, cl[0], cl[1], cl[2], 'linear', 1]]);
+  for (var i = 1; i <= 6; i++) {           // 포물선(위로 높이 솟았다 차로차로 뒤쪽 자리에 내려앉음)
+    var u = i / 6, x = cl[0] + (cp[0] - cl[0]) * u, y = cl[1] + (cp[1] - cl[1]) * u - 4 * 150 * u * (1 - u);
+    chum.push([1.86 + 0.30 * u, x, y, cl[2] + (cp[2] - cl[2]) * u, 'linear', u < 1 ? 1 : 0.4]);
+  }
+  chum.push([4.30, cp[0], cp[1], cp[2], 'linear', 0.4]);
+  // 4.30~4.98 공중제비로 친구들 머리 위를 넘어 티라 왼쪽에 착지
+  for (var j = 1; j <= 8; j++) {
+    var v = j / 8, x2 = cp[0] + (cs[0] - cp[0]) * v, y2 = cp[1] + (cs[1] - cp[1]) * v - 4 * 240 * v * (1 - v);   // 티라 머리 위로 충분히 높게
+    chum.push([4.30 + 0.68 * v, x2, y2, cp[2] + (cs[2] - cp[2]) * v, 'linear', 2]);
+  }
+  chum = chum.concat(lineup('chumdani', cs, null, 0.3));
   var base = '../';
   var cast = [
-    { id: 'chumdani', name: '첨다니', file: base + 'chumdani/chumdani.json', anchor: [200, 283], stageH: 167, z: 0, idle: 'c_idle',
-      segs: [{ t0: 0, t1: 1.2, clip: 'c_run', rate: 2 }, { t0: 2.55, t1: 4.15, clip: 'c_welcome', rate: 2 }, { t0: 4.35, t1: 5.45, clip: 'c_flip', rate: 1.6 }],
-      place: [[0, 790, 290, 125], [4.40, 790, 290, 125, 'linear'], [4.75, 520, 190, 125, 'out'], [5.10, 185, 520, 125, 'in']].concat(lineup('chumdani', 185, 520, 125)),
-      reducedSegs: [], reducedPlace: [[0, 185, 520, 125]].concat(lineup('chumdani', 185, 520, 125)) },
-    { id: 'giltong', name: '길통이', file: base + 'giltong/giltong.json', anchor: [200, 351], stageH: 285, z: 1, idle: 'g_idle',
-      segs: [{ t0: 0, t1: 1.2, clip: 'g_run', rate: 2 }, { t0: 2.55, t1: 4.15, clip: 'g_welcome', rate: 2 }, { t0: 4.15, t1: 4.75, clip: 'g_finish', rate: 1 }],
-      place: [[0, 485, 455, 210]].concat(lineup('giltong', 485, 455, 210)), reducedSegs: [] },
-    { id: 'tira', name: '티라', file: base + 'tira_v3/tira_v3.json', anchor: [200, 382], stageH: 274, z: 2, idle: 't_idle', hold: true,
+    { id: 'chumdani', name: '첨다니', file: base + 'chumdani/chumdani.json', anchor: [200, 283], stageH: 167, idle: 'c_idle',
+      segs: [{ t0: 0.30, t1: 1.62, clip: 'c_run_i', rate: 1.3 }, { t0: 1.62, t1: 2.42, clip: 'c_jump_i' }, { t0: SLOW[0], t1: SLOW[1], clip: 'c_welcome', rate: 2 },
+             { t0: 4.22, t1: 5.32, clip: 'c_flip', rate: 1.6 }],
+      place: chum, reducedSegs: [],
+      reducedPlace: [[0, cp[0], cp[1], cp[2], 'linear', 0.4], [4.30, cp[0], cp[1], cp[2], 'linear', 0.4], [4.98, cs[0], cs[1], cs[2], 'inout', 0.3]].concat(lineup('chumdani', cs, null, 0.3)) },
+    { id: 'giltong', name: '길통이', file: base + 'giltong/giltong.json', anchor: [200, 351], stageH: 285, idle: 'g_idle',
+      segs: [{ t0: 0.30, t1: SLOW[0], clip: 'g_run_i' }, { t0: SLOW[0], t1: SLOW[1], clip: 'g_welcome', rate: 2 }, { t0: SLOW[1], t1: 4.50, clip: 'g_finish', rate: 1 }],
+      place: run(F.giltong, 0.30, SLOW[0], 0.03, 1.02).concat(lineup('giltong', F.giltong, null, 0.9)), reducedSegs: [],
+      reducedPlace: [[0].concat(F.giltong, ['linear', 0.9])].concat(lineup('giltong', F.giltong, null, 0.9)) },
+    { id: 'tira', name: '티라', file: base + 'tira_v3/tira_v3.json', anchor: [200, 382], stageH: 274, idle: 't_idle', hold: true,
       segs: [{ t0: 0, t1: DUR, clip: 't_intro' }], reducedSegs: [{ t0: 0, t1: DUR, clip: 't_intro_r' }],
-      // 티라 동작 안에 자체 정렬 축소(0.6배)가 있어 바깥 층은 키를 덜 줄임 → 최종 크기는 다른 친구와 같은 비율
-      place: [[0, 330, 520, 175]].concat(lineup('tira', 330, 520, 175, 175 * LS / 0.6)) },
-    { id: 'charocharo', name: '차로차로', file: base + 'charo-pet.json', anchor: [200, 370], stageH: 231, z: 0.5, idle: 'c_breath',
+      place: [[0].concat(F.tira, ['linear', 0.95])].concat(lineup('tira', F.tira, null, 0.95)) },
+    { id: 'charocharo', name: '차로차로', file: base + 'charo-pet.json', anchor: [200, 370], stageH: 231, idle: 'c_breath',
       segs: [{ t0: 0, t1: DUR, clip: 'i_charo' }], reducedSegs: [{ t0: 0, t1: DUR, clip: 'i_charo_r' }],
-      // 다가오기(멀리서 작게 → 오른쪽 아래 환영 자리)는 바깥 층, 통통 튀기·점프는 동작(i_charo)
-      place: [[0, 600, 385, 78], [1.15, 705, 528, 138, 'out']].concat(lineup('charocharo', 705, 528, 138)),
-      reducedPlace: [[0, 705, 528, 138]].concat(lineup('charocharo', 705, 528, 138)) },
-    { id: 'doroduck', name: '도로덕', file: base + 'doroduck/doroduck.json', anchor: [200, 354], stageH: 231, z: 4, idle: 'd_idle',
-      segs: [{ t0: 0, t1: 1.2, clip: 'd_run', rate: 2 }, { t0: 2.55, t1: 4.15, clip: 'd_welcome', rate: 2 }, { t0: 4.15, t1: 4.75, clip: 'd_finish', rate: 1 }],
-      place: [[0, 866, 500, 150]].concat(lineup('doroduck', 866, 500, 150)), reducedSegs: [] }
+      place: run(F.charocharo, 0.30, SLOW[0], 0.03, 1.02).concat(lineup('charocharo', F.charocharo, null, 1)),
+      reducedPlace: [[0].concat(F.charocharo, ['linear', 1])].concat(lineup('charocharo', F.charocharo, null, 1)) },
+    { id: 'doroduck', name: '도로덕', file: base + 'doroduck/doroduck.json', anchor: [200, 354], stageH: 231, idle: 'd_idle',
+      segs: [{ t0: 0.30, t1: SLOW[0], clip: 'd_run_i' }, { t0: SLOW[0], t1: SLOW[1], clip: 'd_welcome', rate: 2 }, { t0: SLOW[1], t1: 4.75, clip: 'd_finish_i', rate: 1 }],
+      place: run(F.doroduck, 0.30, SLOW[0], 0.03, 1.02).concat(lineup('doroduck', F.doroduck, null, 0.92)), reducedSegs: [],
+      reducedPlace: [[0].concat(F.doroduck, ['linear', 0.92])].concat(lineup('doroduck', F.doroduck, null, 0.92)) }
   ];
-  var phases = [[0, '정면 우다다닥'], [1.2, '멈춤 · 티라 팻말 꺼내기'], [2.25, '차로차로 폴짝'], [2.55, '환영 슬로모션'], [4.15, '착지 · 첨다니 공중제비'], [5.35, '정렬 · 축소'], [6.05, '로그인 대기로']];
-  global.CharoIntroCast = { duration: DUR, cast: cast, phases: phases, lineupRow: ROW, lineupX: X,
-    welcome: { text: '환영합니다!', box: [260, 30, 740, 120] }, tv: [140, 20, 860, 560], slow: [2.55, 4.15] };
+  var phases = [[0, '티라 혼자 · 친구들 출발 전'], [0.3, '친구들 달려옴 · 티라 불 뿜기'], [1.2, '티라 팻말 꺼내기'], [1.62, '첨다니 고무공 점프'],
+                [2.12, '차로차로 폴짝'], [2.3, '환영 슬로모션'], [3.9, '착지'], [4.3, '첨다니 공중제비 → 티라 옆'], [5.15, '정렬 · 축소'], [5.85, '로그인 대기로']];
+  global.CharoIntroCast = { duration: DUR, cast: cast, phases: phases, lineupRow: ROW, lineupX: X, slow: SLOW, vanishingPoint: VP, formation: F };
 })(window);

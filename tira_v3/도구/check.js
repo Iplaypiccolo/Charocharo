@@ -13,7 +13,7 @@ for (let t = 0; t <= intro.dur + 1e-9; t += 1 / 120) {
   const hk = HK[fp.headImg.img]; if (['02', '03', '06'].includes(hk)) faces.add(hk);
   if (fp.headImg.mix < 1 && fp.headImg.prev !== fp.headImg.img) bad('head_two_layers', t.toFixed(3));
   // 아랫몸통 고정: 1.40~(들썩임 전 3.62) 동안 몸·발·꼬리·sway 행렬 불변
-  if (t >= 1.40 && t <= 2.55) {
+  if (t >= 1.15 && t <= 2.30) {
     const m = ['body', 'footL', 'footR', 'tail'].map(k => W[k].map(v => +v.toFixed(4)).join(',')).join('|');
     if (ref === null) ref = m; else if (m !== ref) bad('lower_body_moved', t.toFixed(3));
   }
@@ -28,9 +28,9 @@ for (let t = 0; t <= intro.dur + 1e-9; t += 1 / 120) {
     if (vis[0] === 'sign14' && hk !== '06') bad('sign14_wrong_head', t.toFixed(3));
     if (fp.mask.op < 0.5 && vis[0] !== 'sign11B') bad('no_front_mask', t.toFixed(3));
   }
-  if (fp.sign14.op > 0.5) { if (Math.abs(fp.sign14.rot) > 1e-6) bad('sign14_extra_rot', t); if (t >= 2.55 && Math.abs(fp.bite.rot) > 6) bad('sign_rot_big', [t.toFixed(2), fp.bite.rot.toFixed(1)]); }
-  if (t >= 2.55 && t <= 2.80) { const s = JSON.stringify([fp.bite.rot.toFixed(3), fp.head.x, fp.head.rot, fp.sway.y.toFixed(2)]); if (beatRef === null) beatRef = s; else if (s !== beatRef) beatMove++; }
-  if (t >= 2.55 && fp.sign14.op < 0.5) bad('sign_lost_after_present', t.toFixed(3));
+  if (fp.sign14.op > 0.5) { if (Math.abs(fp.sign14.rot) > 1e-6) bad('sign14_extra_rot', t); if (t >= 2.30 && Math.abs(fp.bite.rot) > 6) bad('sign_rot_big', [t.toFixed(2), fp.bite.rot.toFixed(1)]); }
+  if (t >= 2.30 && t <= 2.55) { const s = JSON.stringify([fp.bite.rot.toFixed(3), fp.head.x, fp.head.rot, fp.sway.y.toFixed(2)]); if (beatRef === null) beatRef = s; else if (s !== beatRef) beatMove++; }
+  if (t >= 2.30 && fp.sign14.op < 0.5) bad('sign_lost_after_present', t.toFixed(3));
 }
 R.faces = [...faces]; R.max_mouth_gap_world_px = +maxGap.toFixed(3); R.beat_frames_moving = beatMove;
 const end = at(intro, intro.dur).fp; R.final = { head: HK[end.headImg.img], sign14: end.sign14.op, fire: end.fire.op, rot: end.bite.rot };

@@ -15,7 +15,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans);pa
 h1{font-size:22px;margin:0}
 p.lead{margin:4px 0 0;color:var(--sub);max-width:70ch}
 .stage{position:relative;width:100%;aspect-ratio:1000/600;border-radius:14px;overflow:hidden;background:linear-gradient(160deg,#1f5f8f,#10243a)}
-.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 .hud{position:absolute;left:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap}
 .chip{font:500 12px var(--mono);background:rgba(255,255,255,.92);color:#10243a;border-radius:6px;padding:3px 8px}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -31,8 +31,8 @@ input[type=range]{flex:1;min-width:200px}
 <body>
 <div class="wrap">
   <header>
-    <h1>로그인 인트로 검수 (차로차로 동작 중심)</h1>
-    <p class="lead">다섯 친구를 하나의 시간축으로 재생합니다. 큰 ‘환영합니다!’ 글자와 둥근 배경 사각형은 위치 확인용 <b>임시 표시</b>이고, 다른 친구는 각자의 기존 동작을 시간만 맞춰 얹은 것입니다.</p>
+    <h1>로그인 인트로 검수</h1>
+    <p class="lead">티라가 서 있는 동안 친구들이 지평선의 한 점에서 달려와, 멈추지 않고 그대로 환영 슬로모션으로 이어집니다. 문구·배경·폭죽·색종이는 슬로모션 동안만 나옵니다.</p>
   </header>
   <div class="stage"><canvas id="cv" role="img" aria-label="로그인 인트로 미리보기"></canvas>
     <div class="hud"><span class="chip" id="hT">0.00초</span><span class="chip" id="hPh">-</span><span class="chip" id="hFace">-</span></div></div>
@@ -40,13 +40,14 @@ input[type=range]{flex:1;min-width:200px}
     <button id="bPlay" class="main" type="button">▶ 처음부터 재생</button>
     <button id="bSkip" type="button">건너뛰기</button>
     <label><input type="checkbox" id="tReduce"> 모션 줄이기</label>
-    <label><input type="checkbox" id="tGuide" checked> 임시 글자·배경 표시</label>
   </div>
-  <div class="bar"><label style="flex:1">시점 <input type="range" id="scrub" min="0" max="6.7" step="0.01" value="0"></label><span class="chip" id="hS">0.00</span></div>
+  <div class="bar"><label style="flex:1">시점 <input type="range" id="scrub" min="0" max="6.3" step="0.01" value="0"></label><span class="chip" id="hS">0.00</span></div>
   <p class="note" id="msg">불러오는 중…</p>
+  <p id="sr" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></p>
 </div>
 <script src="../charo-pet.js"></script>
 <script src="charo-intro.js"></script>
+<script src="welcome-fx.js"></script>
 <script src="intro-cast.js"></script>
 <script src="preview.js"></script>
 </body>

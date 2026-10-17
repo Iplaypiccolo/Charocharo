@@ -1,0 +1,324 @@
+{
+  "version": 1,
+  "coordinate_note": "canvas/source_rect/anchor are measured PNG source pixels. Layout coordinates below are normalized within the welcome stage; do not confuse the two. Source rectangles only guide runtime drawing and do not modify PNG bytes.",
+  "reference_stage_aspect_ratio": 1.7937701396348014,
+  "layout_guide": {
+    "title": {
+      "center": [
+        0.505,
+        0.25
+      ],
+      "visible_width_fraction_of_stage_width": 0.56
+    },
+    "burst_centers": [
+      [
+        0.17,
+        0.36
+      ],
+      [
+        0.84,
+        0.35
+      ]
+    ],
+    "burst_visible_diameter_fraction_of_stage_width": [
+      0.1,
+      0.13
+    ],
+    "confetti_visible_long_edge_fraction_of_stage_width": [
+      0.01,
+      0.018
+    ]
+  },
+  "assets": [
+    {
+      "file": "assets/01_환영합니다_문구.png",
+      "kind": "title",
+      "label": "환영합니다!",
+      "canvas": [
+        2172,
+        724
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        282,
+        125,
+        1910,
+        625
+      ],
+      "suggested_source_rect_xywh": [
+        278,
+        121,
+        1636,
+        508
+      ],
+      "anchor_source_xy": [
+        1096.0,
+        375.0
+      ],
+      "anchor_in_suggested_rect_xy": [
+        818.0,
+        254.0
+      ],
+      "base_orientation": "upright",
+      "sha256": "833a83d4a75bfcc7bcf11701b047dfb830fd32fd3dec890b79caf9437d0f489e"
+    },
+    {
+      "file": "assets/02_폭죽_완성형.png",
+      "kind": "burst",
+      "label": "간단 재생 또는 조립 모양 참고",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        173,
+        131,
+        1110,
+        1118
+      ],
+      "suggested_source_rect_xywh": [
+        169,
+        127,
+        945,
+        995
+      ],
+      "anchor_source_xy": [
+        641.5,
+        624.5
+      ],
+      "anchor_in_suggested_rect_xy": [
+        472.5,
+        497.5
+      ],
+      "base_orientation": "upright",
+      "sha256": "d16bf63dda03d4adf92966cbb032de09770f5ff514c9fc3da966ed970b710195"
+    },
+    {
+      "file": "assets/03_폭죽_한조각_노랑.png",
+      "kind": "ray",
+      "label": "노랑",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        498,
+        167,
+        773,
+        1089
+      ],
+      "suggested_source_rect_xywh": [
+        494,
+        163,
+        283,
+        930
+      ],
+      "anchor_source_xy": [
+        652.0,
+        1088
+      ],
+      "anchor_in_suggested_rect_xy": [
+        158.0,
+        925
+      ],
+      "base_orientation": "tip_down_bulb_up",
+      "sha256": "5ec8ed1b53842bf9667106f0e31c689661ae71f268116abfb1d6f1f3a9d2d5f3"
+    },
+    {
+      "file": "assets/04_폭죽_한조각_분홍.png",
+      "kind": "ray",
+      "label": "분홍",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        510,
+        174,
+        785,
+        1079
+      ],
+      "suggested_source_rect_xywh": [
+        506,
+        170,
+        283,
+        913
+      ],
+      "anchor_source_xy": [
+        590.0,
+        1078
+      ],
+      "anchor_in_suggested_rect_xy": [
+        84.0,
+        908
+      ],
+      "base_orientation": "tip_down_bulb_up",
+      "sha256": "b6aa8dafc0e46e6d3acf5c4ebe7451a22ef7fff917e019366fe7f68f4aab1c61"
+    },
+    {
+      "file": "assets/05_폭죽_한조각_하늘.png",
+      "kind": "ray",
+      "label": "하늘",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        489,
+        202,
+        776,
+        1058
+      ],
+      "suggested_source_rect_xywh": [
+        485,
+        198,
+        295,
+        864
+      ],
+      "anchor_source_xy": [
+        613.0,
+        1057
+      ],
+      "anchor_in_suggested_rect_xy": [
+        128.0,
+        859
+      ],
+      "base_orientation": "tip_down_bulb_up",
+      "sha256": "c7a8f3c29d928fb2873c522546c2cd057ab553e60cb292a37c0dd45a1357ff8e"
+    },
+    {
+      "file": "assets/06_색종이_한조각_노랑.png",
+      "kind": "confetti",
+      "label": "노랑",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        467,
+        330,
+        787,
+        923
+      ],
+      "suggested_source_rect_xywh": [
+        463,
+        326,
+        328,
+        601
+      ],
+      "anchor_source_xy": [
+        627.0,
+        626.5
+      ],
+      "anchor_in_suggested_rect_xy": [
+        164.0,
+        300.5
+      ],
+      "base_orientation": "upright",
+      "sha256": "b6b139a078857dd152be4cfda7d0edc0e5e6b3b5628304822d99a47847c82eea"
+    },
+    {
+      "file": "assets/07_색종이_한조각_분홍.png",
+      "kind": "confetti",
+      "label": "분홍",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        443,
+        308,
+        811,
+        946
+      ],
+      "suggested_source_rect_xywh": [
+        439,
+        304,
+        376,
+        646
+      ],
+      "anchor_source_xy": [
+        627.0,
+        627.0
+      ],
+      "anchor_in_suggested_rect_xy": [
+        188.0,
+        323.0
+      ],
+      "base_orientation": "upright",
+      "sha256": "1764a8ed28a622caeef8c51d0fb64137a1b14c40a8885ee2dcfb82ac1e14ce29"
+    },
+    {
+      "file": "assets/08_색종이_한조각_하늘.png",
+      "kind": "confetti",
+      "label": "하늘",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bbox_alpha_gt_127_xyxy": [
+        470,
+        344,
+        784,
+        909
+      ],
+      "suggested_source_rect_xywh": [
+        466,
+        340,
+        322,
+        573
+      ],
+      "anchor_source_xy": [
+        627.0,
+        626.5
+      ],
+      "anchor_in_suggested_rect_xy": [
+        161.0,
+        286.5
+      ],
+      "base_orientation": "upright",
+      "sha256": "7c9aeb7bdf993fc2a2f66c1894d2b580d3ae9e44202833bc707b2d03057c3f3f"
+    }
+  ],
+  "recommended_runtime": {
+    "mode": "individual_rays",
+    "rays_per_burst": 11,
+    "confetti_count_desktop": 18,
+    "confetti_count_mobile": 10,
+    "use_whole_burst_and_rays_together": false,
+    "phase": "welcome_slow_motion_only",
+    "initial_layout_not_site_tested": true
+  },
+  "qa": "모든 PNG RGBA 및 투명 영역 확인. 문구 철자와 개별 파츠 시각 확인. 대상 사이트 합성·모션 재생 검수는 미실시."
+}

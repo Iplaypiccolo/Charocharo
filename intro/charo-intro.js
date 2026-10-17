@@ -18,14 +18,15 @@
   var PROPS = ['x', 'y', 'rot', 'sx', 'sy', 'op'];
   var BLEND = 0.16;   // 동작(clip)이 바뀔 때 앞 동작 끝 자세에서 넘어오는 시간(초)
 
-  // 바깥 층 키: [t, x, y, h, ease]  (x,y = 발 위치, h = 표시 키, 논리 좌표)
+  // 바깥 층 키: [t, x, y, h, ease, depth]  (x,y = 발 위치, h = 표시 키, 논리 좌표, depth = 앞뒤 순서(클수록 앞, 없으면 z))
   function samplePlace(keys, t) {
     if (t <= keys[0][0]) return keys[0];
     for (var i = 0; i < keys.length - 1; i++) {
       var a = keys[i], b = keys[i + 1];
       if (t < b[0]) {
         var u = (t - a[0]) / (b[0] - a[0]), f = (EASE[b[4]] || EASE.inout)(u);
-        return [t, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f];
+        var da = a[5], db = b[5];
+        return [t, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f, null, (da == null || db == null) ? (da != null ? da : db) : da + (db - da) * u];
       }
     }
     return keys[keys.length - 1];
@@ -55,7 +56,7 @@
     var cv = opt.canvas, ctx = cv.getContext('2d');
     var W = opt.width || 1000, Hh = opt.height || 600, DUR = opt.duration;
     var cast = opt.cast, reduce = !!opt.reduce;
-    var state = 'loading', T = 0, t0 = 0, endAt = 0, raf = 0, paused = false, ready = null, scale = 1, err = null;
+    var welcomed = false, state = 'loading', T = 0, t0 = 0, endAt = 0, raf = 0, paused = false, ready = null, scale = 1, err = null;
 
     function fit() {
       var r = cv.getBoundingClientRect(), dpr = global.devicePixelRatio || 1;
@@ -104,15 +105,20 @@
       fit();
       var after = state === 'wait';
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+      if (opt.fx) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.fx.drawBack(ctx, after ? DUR : T, api); ctx.restore(); }
       if (opt.drawBack) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.drawBack(ctx, after ? DUR : T, api); ctx.restore(); }
-      var order = cast.slice().sort(function (a, b) { return (a.z || 0) - (b.z || 0); });
+      var tt = after ? DUR : T;   // 앞뒤 순서: 바깥 층 depth(원근에서 가까울수록 앞) → 없으면 고정 z
+      function dep(c) { var pl = samplePlace(placeOf(c), Math.min(tt, DUR)); return pl[5] != null ? pl[5] : (c.z || 0); }
+      var order = cast.slice().sort(function (a, b) { return dep(a) - dep(b) || (a.z || 0) - (b.z || 0); });
       order.forEach(function (c) {
         var off = offsetsAt(c, T, after), fp = CP.finalPose(c.P, off, null), v = viewOf(c, after ? DUR : T);
         CP.render(ctx, c.P, fp, CP.worldMatrices(c.P, fp), v);
         last[c.id] = { fp: fp, view: v };
       });
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+      if (opt.fx) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.fx.drawFront(ctx, after ? DUR : T, api); ctx.restore(); }
       if (opt.drawFront) { ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); opt.drawFront(ctx, after ? DUR : T, api); ctx.restore(); }
+      if (opt.onWelcome && !welcomed && opt.fx && opt.fx.active(after ? DUR : T) && state === 'play') { welcomed = true; opt.onWelcome(api); }   // 화면 낭독용 알림 한 번
     }
 
     function loop(now) {
@@ -132,12 +138,12 @@
 
     var api = {
       ready: null,
-      start: function () { return ready.then(function () { state = 'play'; paused = false; T = 0; t0 = global.performance.now(); cast.forEach(function (c) { c.endPose = null; }); }); },
+      start: function () { return ready.then(function () { state = 'play'; paused = false; T = 0; welcomed = false; t0 = global.performance.now(); cast.forEach(function (c) { c.endPose = null; }); }); },
       skip: function () { if (state === 'loading' || state === 'error') return; finish(); },     // 정상 종료와 같은 자리·자세로
       restart: function () { return api.start(); },
       seek: function (t) { if (state === 'loading' || state === 'error') return; state = 'play'; paused = true; T = Math.max(0, Math.min(DUR, t)); },
       resume: function () { if (paused) { paused = false; t0 = global.performance.now() - T * 1000; } },
-      setReduce: function (r) { reduce = !!r; },
+      setReduce: function (r) { reduce = !!r; if (opt.fx && opt.fx.setReduce) opt.fx.setReduce(reduce); },
       destroy: function () { global.cancelAnimationFrame(raf); raf = 0; state = 'done'; },
       endState: function () {   // 끝난 직후(대기 0초) 자세와 바깥 층 행렬 — 정상 종료·건너뛰기 비교용
         var o = {}; cast.forEach(function (c) { var e = c.endPose; c.endPose = null; var off = offsetsAt(c, DUR, true); c.endPose = e;
@@ -146,7 +152,7 @@
       phase: function (t) { var ph = opt.phases || [], x = ''; ph.forEach(function (p) { if (t >= p[0]) x = p[1]; }); return x; },
       cast: cast
     };
-    ready = loadAll(CP, cast).then(function () { state = 'idle'; fit(); raf = global.requestAnimationFrame(loop); },
+    ready = Promise.all([loadAll(CP, cast), opt.fx ? opt.fx.ready : null]).then(function () { state = 'idle'; fit(); raf = global.requestAnimationFrame(loop); },
                                    function (e) { state = 'error'; err = e; if (opt.onError) opt.onError(e); throw e; });
     api.ready = ready;
     return api;

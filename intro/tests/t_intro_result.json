@@ -1,8 +1,23 @@
 {
  "clipped_pixels_outside_screen": "none",
- "charo_vs_welcome_text_px": "none",
+ "title_over_character_faces_px": "none",
  "charo_over_friend_face_px": "none",
- "lineup_max_step_px_per_0.05s": 20,
+ "chumdani_face_hidden_by_charo_in_slow": {
+  "mean": 0.0,
+  "max": 0
+ },
+ "fx_pixels_outside_slow": {
+  "0.5": 0,
+  "2.29": 0,
+  "3.9099999999999997": 0,
+  "4.5": 0,
+  "6.3": 0
+ },
+ "fx_pixels_inside_slow": {
+  "2.5999999999999996": 480806,
+  "3.3": 480662
+ },
+ "lineup_max_step_px_per_0.05s": 18,
  "skip_equals_end": "same",
  "end_to_wait_box_delta": 0,
  "resize_box_delta_logical": 0.1,
@@ -11,6 +26,7 @@
  "scripts": [
   "charo-pet.js",
   "charo-intro.js",
+  "welcome-fx.js",
   "intro-cast.js",
   "preview.js"
  ],

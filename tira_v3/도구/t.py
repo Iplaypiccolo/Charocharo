@@ -23,7 +23,7 @@ try:
     st=lambda: pg.evaluate('window.__gt')
     R['idle']=dev(pg.evaluate(POSE))
     pg.click('#b_intro'); seq=[]; t0=time.time()
-    while time.time()-t0<7.0:
+    while time.time()-t0<6.6:
         s=st(); k=(s['head'],s['sign'],s['fire'])
         if not seq or seq[-1][1:]!=k: seq.append((round(time.time()-t0,2),)+k)
         time.sleep(0.01)
@@ -35,7 +35,7 @@ try:
     pg.click('#b_stop'); time.sleep(0.4)
     for i in range(6): pg.click('#b_intro'); time.sleep(0.04)
     time.sleep(0.3); R['spam']=st()['clip']; pg.click('#b_stop'); time.sleep(0.4)
-    for cid,d in (('t_run',1.45),('t_fetch',1.4),('t_welcome',4.15),('t_turn_slow',4.8),('t_fetch_zoom',3.21)):
+    for cid,d in (('t_run',1.25),('t_fetch',1.45),('t_welcome',4.0),('t_turn_slow',4.8),('t_fetch_zoom',3.21)):
         pg.click('#b_'+cid); time.sleep(d+0.6); R['end_'+cid]=dev(pg.evaluate(POSE))
     pg.check('#t_reduce'); pg.click('#b_intro'); hs=set(); fs=set(); ss=set(); t0=time.time()
     while time.time()-t0<3.0: s=st(); hs.add(s['head']); fs.add(s['fire']); ss.add(s['sign']); time.sleep(0.02)

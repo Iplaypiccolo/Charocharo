@@ -18,6 +18,7 @@ try:
     b = p.chromium.launch(); errs = []
     pg = b.new_page(viewport={'width': 1100, 'height': 900}); pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(URL); pg.wait_for_function('window.__intro && __intro.info().state=="idle"', timeout=20000)
+    DUR = pg.evaluate('CharoIntroCast.duration'); SL = pg.evaluate('CharoIntroCast.slow')
     ids = ['chumdani', 'giltong', 'tira', 'charocharo', 'doroduck']
     # 1) 시점별 실제 픽셀 검사: 캐릭터마다 따로 1000×600에 그려 보이는 픽셀로 잘림·겹침 판단(투명 여백 제외)
     PIX = """(T)=>{const CP=CharoPet,I=__intro; I.seek(T); const sc0=Math.min(document.getElementById('cv').width/1000,document.getElementById('cv').height/600);
@@ -32,23 +33,35 @@ try:
        for(let k=3;k<db.length;k+=16){if(db[k]>40){all++; const px=(k>>2)%1600-300, py=Math.floor((k>>2)/1600)-300; if(px>=0&&px<1000&&py>=0&&py<600) inside++;}}
        masks[c.id]=m; out[c.id]={box:[x0,y0,x1,y1], outside:all-inside};});
      const cm=masks.charocharo; const res={T:T,clip:{},face:{},text:0};
-     I.cast.forEach(c=>{ if(out[c.id].outside>0) res.clip[c.id]=out[c.id].outside; if(c.id==='charocharo') return;
+     I.cast.forEach(c=>{ if(out[c.id].outside>0) res.clip[c.id]=out[c.id].outside; if(c.id==='charocharo') return; if(c.id==='chumdani') return;   // 첨다니는 일부러 차로차로 뒤(따로 비율 계산)
        const b=out[c.id].box, fy=b[1]+(b[3]-b[1])*0.45, m=masks[c.id]; let n=0;
        for(let j=b[1];j<=fy;j++)for(let i=b[0];i<=b[2];i++){const k=j*1000+i; if(m[k]&&cm[k]) n++;} if(n) res.face[c.id]=n; });
-     const W=[260,30,740,120]; for(let j=W[1];j<W[3];j++)for(let i=W[0];i<W[2];i++) if(cm[j*1000+i]) res.text++;
+     const W=__fx.boxes().title.map(Math.round); res.title={};
+     if(__fx.active(T)) I.cast.forEach(c=>{const b=out[c.id].box, fy=b[1]+(b[3]-b[1])*0.45, m=masks[c.id]; let n=0;
+       for(let j=Math.max(b[1],W[1]);j<=Math.min(fy,W[3]);j++)for(let i=Math.max(b[0],W[0]);i<=Math.min(b[2],W[2]);i++) if(m[j*1000+i]) n++; if(n) res.title[c.id]=n;});
+     // 첨다니(차로차로 뒤에 자리)의 얼굴 쪽(위 45%)이 차로차로에 가려진 비율
+     {const b=out.chumdani.box, fy=b[1]+(b[3]-b[1])*0.45, m=masks.chumdani; let a=0,h=0; for(let j=Math.max(0,b[1]);j<=fy;j++)for(let i=Math.max(0,b[0]);i<=b[2];i++){const k=j*1000+i; if(m[k]){a++; if(cm[k]) h++;}} res.chumFaceHidden=a?h/a:0;}
      res.charoBox=out.charocharo.box; return res;}"""
-    clip, text_hit, face_hit, prevc, maxjump = [], [], [], None, 0
+    clip, text_hit, face_hit, prevc, maxjump, chum = [], [], [], None, 0, []
     t = 0.0
-    while t <= 6.7001:
+    while t <= DUR + 1e-4:
+        pg.evaluate(f'__intro.seek({t})'); pg.wait_for_timeout(30)
         r = pg.evaluate(PIX, t)
         if r['clip']: clip.append((round(t, 2), r['clip']))
-        if 2.55 <= t <= 4.15 and r['text']: text_hit.append((round(t, 2), r['text']))
+        for k, n in r['title'].items(): text_hit.append((round(t, 2), k, n))
         for k, n in r['face'].items(): face_hit.append((round(t, 2), k, n))
+        if SL[0] <= t <= SL[1]: chum.append(r['chumFaceHidden'])
         c = r['charoBox']
-        if prevc and t > 5.3: maxjump = max(maxjump, max(abs(a - b_) for a, b_ in zip(c, prevc)))
+        if prevc and t > 5.1: maxjump = max(maxjump, max(abs(a - b_) for a, b_ in zip(c, prevc)))
         prevc = c; t = round(t + 0.05, 2)
-    R['clipped_pixels_outside_screen'] = clip[:8] or 'none'; R['charo_vs_welcome_text_px'] = text_hit[:6] or 'none'
+    R['clipped_pixels_outside_screen'] = clip[:8] or 'none'; R['title_over_character_faces_px'] = text_hit[:6] or 'none'
     R['charo_over_friend_face_px'] = (face_hit[:8] + [('총 프레임', len(face_hit))]) if face_hit else 'none'
+    R['chumdani_face_hidden_by_charo_in_slow'] = dict(mean=round(sum(chum) / len(chum), 3), max=round(max(chum), 3))
+    # 효과가 슬로모션 밖에 남지 않는지: 효과만 따로 그려 픽셀 수
+    FXPIX = """(T)=>{const k=document.createElement('canvas');k.width=1000;k.height=600;const x=k.getContext('2d');__fx.drawBack(x,T);__fx.drawFront(x,T);
+      const d=x.getImageData(0,0,1000,600).data;let n=0;for(let i=3;i<d.length;i+=4) if(d[i]>8) n++; return n;}"""
+    R['fx_pixels_outside_slow'] = {str(t): pg.evaluate(FXPIX, t) for t in (0.5, SL[0] - 0.01, SL[1] + 0.01, 4.5, DUR)}
+    R['fx_pixels_inside_slow'] = {str(t): pg.evaluate(FXPIX, t) for t in (SL[0] + 0.3, SL[0] + 1.0)}
     R['lineup_max_step_px_per_0.05s'] = round(maxjump, 1)
     # 2) 정상 종료 vs 건너뛰기: 끝난 뒤 위치·자세가 같은지
     def snap():
@@ -65,7 +78,7 @@ try:
             if any(abs(x - y) > 0.6 for x, y in zip(a[:6], b_[:6])) or a[6] != b_[6]: diff.append((k, part, a, b_))
     R['skip_equals_end'] = diff[:5] or 'same'
     # 3) 끝 → 대기 이어짐: 끝 직전·직후 차로차로 상자 차이
-    pg.evaluate('__intro.seek(6.69)'); pg.wait_for_timeout(30); a = pg.evaluate(BOX, 'charocharo')
+    pg.evaluate(f'__intro.seek({DUR-0.01})'); pg.wait_for_timeout(30); a = pg.evaluate(BOX, 'charocharo')
     pg.evaluate('__intro.skip()'); pg.wait_for_timeout(30); b2 = pg.evaluate(BOX, 'charocharo')
     R['end_to_wait_box_delta'] = round(max(abs(x - y) for x, y in zip(a, b2)), 2)
     # 4) 창 크기 변경: 논리 좌표 그대로인지
