@@ -8,17 +8,20 @@
  "max_mouth_gap_world_px": 0,
  "beat_frames_moving": 0,
  "final": {
-  "head": "06",
-  "sign14": 1,
-  "fire": 0,
-  "rot": 0
+  "head": "02",
+  "sign14": 0,
+  "sign11B": 0,
+  "sign11F": 0,
+  "mask": 0,
+  "fire": 0
  },
  "reduced": {
   "heads": [
-   "06"
+   "06",
+   "02"
   ],
   "fire": 0,
-  "sign14_min": 1
+  "sign14_min": 0
  },
  "idle_layers": [
   0,

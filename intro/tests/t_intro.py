@@ -35,7 +35,7 @@ try:
      const cm=masks.charocharo; const res={T:T,clip:{},face:{},text:0};
      I.cast.forEach(c=>{ if(out[c.id].outside>0) res.clip[c.id]=out[c.id].outside; if(c.id==='charocharo') return; if(c.id==='chumdani') return;   // 첨다니는 일부러 차로차로 뒤(따로 비율 계산)
        const b=out[c.id].box, fy=b[1]+(b[3]-b[1])*0.45, m=masks[c.id]; let n=0;
-       for(let j=b[1];j<=fy;j++)for(let i=b[0];i<=b[2];i++){const k=j*1000+i; if(m[k]&&cm[k]) n++;} if(n) res.face[c.id]=n; });
+       for(let j=b[1];j<=fy;j++)for(let i=b[0];i<=b[2];i++){const k=j*1000+i; if(m[k]&&cm[k]) n++;} const ord=I.info().last.__order; if(n && ord.indexOf('charocharo')>ord.indexOf(c.id)) res.face[c.id]=n; });   // 차로차로가 그 친구보다 앞에 그려질 때만 '가림'
      const W=__fx.boxes().title.map(Math.round); res.title={};
      if(__fx.active(T)) I.cast.forEach(c=>{const b=out[c.id].box, fy=b[1]+(b[3]-b[1])*0.45, m=masks[c.id]; let n=0;
        for(let j=Math.max(b[1],W[1]);j<=Math.min(fy,W[3]);j++)for(let i=Math.max(b[0],W[0]);i<=Math.min(b[2],W[2]);i++) if(m[j*1000+i]) n++; if(n) res.title[c.id]=n;});

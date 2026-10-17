@@ -139,6 +139,8 @@ details summary{cursor:pointer;font-weight:500}
       <figcaption>3. 입 주변 확대(×3 느리게): 등 뒤에서 물기 → 몸 오른쪽 뒤로 옆면이 조금 → 앞 옆면 → 정면으로 펼쳐지며 거꾸로 ‘환영’ → 판만 흔들리다 안정.</figcaption></figure>
     <figure><div class="shot"><img id="im_fire" alt="큰 불꽃 뿌리 확대"></div>
       <figcaption>5. 불꽃 교체본: 위 줄 = 0.31 작은 불 · 0.45 큰 불, 아래 줄 = 0.60 큰 불(출렁) · 0.75 작은 불. 뿌리가 모두 입 왼쪽 끝 같은 자리에 붙어 있습니다.</figcaption></figure>
+    <figure><div class="shot"><img id="im_pb" alt="팻말 다시 넣기"></div>
+      <figcaption>6. 슬로모션이 끝난 뒤 팻말을 다시 등 뒤로 보내는 순서(3.90–4.80초).</figcaption></figure>
     <figure><div class="shot fit"><img id="im_size" alt="실제 표시 크기"></div>
       <figcaption>4. 실제 크기(키 120·150·180px): 큰 불 순간 · 뒤보기 · 거꾸로 물기.</figcaption></figure>
   </section>
@@ -169,7 +171,7 @@ var REPORT = /*@@REPORT@@*/null;
   $('summary').innerHTML = REPORT.summary.map(function(r){ return '<p class="note" style="margin:8px 0 0">'+esc(r)+'</p>'; }).join('');
   var cnt = {}; REPORT.checks.forEach(function(r){ cnt[r[1]] = (cnt[r[1]]||0)+1; });
   $('sum').innerHTML = Object.keys(cnt).map(function(k){ return '<span class="pill '+(CLS[k]||'na')+'">검수 '+k+' '+cnt[k]+'</span>'; }).join('');
-  $('im_cmp').src = IMG.cmp; $('im_turn').src = IMG.turn; $('im_zoom').src = IMG.zoom; $('im_size').src = IMG.size; $('im_fire').src = IMG.fire;
+  $('im_cmp').src = IMG.cmp; $('im_turn').src = IMG.turn; $('im_zoom').src = IMG.zoom; $('im_size').src = IMG.size; $('im_fire').src = IMG.fire; $('im_pb').src = IMG.pb;
   $('rig').textContent = JSON.stringify(RIG, null, 1);
 
   var opt = { reduce: false };

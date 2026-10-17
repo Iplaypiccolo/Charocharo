@@ -1,7 +1,7 @@
 import cv2,numpy as np,json
-N=1254; J={t['id']:t for t in json.load(open('src/rig_start.json'))['transforms']}
+N=1254; J={t['id']:t for t in json.load(open('/home/claude/tira3/src/rig_start.json'))['transforms']}
 import glob,os
-FILES={os.path.basename(f)[6:8]:f for f in glob.glob('src/파츠/*.png')}
+FILES={os.path.basename(f)[6:8]:f for f in glob.glob('/home/claude/tira3/src/파츠/*.png')}
 def raw(i): return cv2.imread(FILES[i],cv2.IMREAD_UNCHANGED)
 def M(i, extra=None):
     t=J[i]; s=t.get('scale',1); tx=t.get('translate_x',0); ty=t.get('translate_y',0)

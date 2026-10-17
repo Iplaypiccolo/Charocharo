@@ -11,7 +11,7 @@ REPORT = json.load(open(G + 'work/report.json')) if os.path.exists(G + 'work/rep
 player = open('/home/claude/charo-pet.js').read()
 data = open(G + 'out/tira_v3.json').read(); rig = open(G + 'out/rig.json').read()
 assert '</script' not in player and '</' not in data
-imgs = dict(cmp=jpg(G + 'out/compare_views.png', 1600), turn=jpg(G + 'out/head_turn_strip.png', 2700), zoom=jpg(G + 'out/fetch_zoom_strip.png', 3140), size=jpg(G + 'out/actual_size.png', 900), fire=jpg(G + 'out/fire_root_zoom.png', 880))
+imgs = dict(cmp=jpg(G + 'out/compare_views.png', 1600), turn=jpg(G + 'out/head_turn_strip.png', 2700), zoom=jpg(G + 'out/fetch_zoom_strip.png', 3140), size=jpg(G + 'out/actual_size.png', 900), fire=jpg(G + 'out/fire_root_zoom.png', 880), pb=jpg(G + 'out/putback_strip.png', 2240))
 src = open(G + 'work/page.src.html').read()
 out = (src.replace('/*@@PLAYER@@*/', player).replace('/*@@JSON@@*/null', data).replace('/*@@RIG@@*/null', rig)
           .replace('/*@@IMG@@*/null', json.dumps(imgs)).replace('/*@@REPORT@@*/null', json.dumps(REPORT, ensure_ascii=False)))

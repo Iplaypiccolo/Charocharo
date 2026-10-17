@@ -54,5 +54,10 @@ for part, tr in c['tracks'].items():
         else:
             v85 = interp([(k['t'], k['v']) for k in ks], 0.85)
             keep = [k for k in ks if k['t'] < 0.85] + [dict(t=0.85, v=round(v85, 4), e='inout')]; tr[prop] = keep
-put(p, c); save('doroduck/doroduck.json', p); REPORT['d_finish_i'] = 'added'
+put(p, c)
+# 2026-10-17 사용자 요청: 도로덕 '합니다!' 팻말 25% 크게(손잡이 끝 기준점 그대로). 원래 배율을 baseScale로 남겨 다시 실행해도 1.25배 한 번만
+sg = [pt for pt in p['parts'] if pt['id'] == 'sign'][0]
+sg.setdefault('baseScale', sg['rest']['sx']); sg['rest']['sx'] = sg['rest']['sy'] = round(sg['baseScale'] * 1.25, 4)
+REPORT['doroduck_sign_scale'] = [sg['baseScale'], sg['rest']['sx']]
+save('doroduck/doroduck.json', p); REPORT['d_finish_i'] = 'added'
 print(json.dumps(REPORT, ensure_ascii=False))

@@ -7,7 +7,7 @@ const G = RIG.mouthGrip, HK = ['02', '03', '04', '05', '06'], G6 = G['06'];
 const R = {}; const bad = (k, v) => { (R[k] = R[k] || []).length < 6 && R[k].push(v); };
 function at(clip, t) { const off = CP.offsetsFrom(P, CP.clipPose(P, clip, t)); const fp = CP.finalPose(P, off, null); return { fp, W: CP.worldMatrices(P, fp) }; }
 const intro = CP.findClip(P, 't_intro');
-let ref = null, faces = new Set(), maxGap = 0, beatMove = 0, beatRef = null;
+let ref = null, ref2 = null, faces = new Set(), maxGap = 0, beatMove = 0, beatRef = null;
 for (let t = 0; t <= intro.dur + 1e-9; t += 1 / 120) {
   const { fp, W } = at(intro, t);
   const hk = HK[fp.headImg.img]; if (['02', '03', '06'].includes(hk)) faces.add(hk);
@@ -28,12 +28,13 @@ for (let t = 0; t <= intro.dur + 1e-9; t += 1 / 120) {
     if (vis[0] === 'sign14' && hk !== '06') bad('sign14_wrong_head', t.toFixed(3));
     if (fp.mask.op < 0.5 && vis[0] !== 'sign11B') bad('no_front_mask', t.toFixed(3));
   }
-  if (fp.sign14.op > 0.5) { if (Math.abs(fp.sign14.rot) > 1e-6) bad('sign14_extra_rot', t); if (t >= 2.30 && Math.abs(fp.bite.rot) > 6) bad('sign_rot_big', [t.toFixed(2), fp.bite.rot.toFixed(1)]); }
+  if (fp.sign14.op > 0.5) { if (Math.abs(fp.sign14.rot) > 1e-6) bad('sign14_extra_rot', t); if (t >= 2.30 && t < 4.0 && Math.abs(fp.bite.rot) > 6) bad('sign_rot_big', [t.toFixed(2), fp.bite.rot.toFixed(1)]); }
   if (t >= 2.30 && t <= 2.55) { const s = JSON.stringify([fp.bite.rot.toFixed(3), fp.head.x, fp.head.rot, fp.sway.y.toFixed(2)]); if (beatRef === null) beatRef = s; else if (s !== beatRef) beatMove++; }
-  if (t >= 2.30 && fp.sign14.op < 0.5) bad('sign_lost_after_present', t.toFixed(3));
+  if (t >= 2.30 && t < 4.0 && fp.sign14.op < 0.5) bad('sign_lost_during_welcome', t.toFixed(3));
+  if (t >= 3.90 && t <= 4.80) { const m2 = ['body', 'footL', 'footR', 'tail'].map(k => W[k].map(v => +v.toFixed(4)).join(',')).join('|'); if (ref2 === null) ref2 = m2; else if (m2 !== ref2) bad('lower_body_moved_putback', t.toFixed(3)); }
 }
 R.faces = [...faces]; R.max_mouth_gap_world_px = +maxGap.toFixed(3); R.beat_frames_moving = beatMove;
-const end = at(intro, intro.dur).fp; R.final = { head: HK[end.headImg.img], sign14: end.sign14.op, fire: end.fire.op, rot: end.bite.rot };
+const end = at(intro, intro.dur).fp; R.final = { head: HK[end.headImg.img], sign14: end.sign14.op, sign11B: end.sign11B.op, sign11F: end.sign11F.op, mask: end.mask.op, fire: end.fire.op };
 const red = CP.findClip(P, 't_intro_r'); const heads = new Set(); let redFire = 0, redSign = 1;
 for (let t = 0; t <= red.dur; t += 0.05) { const { fp } = at(red, t); heads.add(HK[fp.headImg.img]); redFire = Math.max(redFire, fp.fire.op); redSign = Math.min(redSign, fp.sign14.op); }
 R.reduced = { heads: [...heads], fire: redFire, sign14_min: redSign };

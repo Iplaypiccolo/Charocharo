@@ -110,6 +110,7 @@
       var tt = after ? DUR : T;   // 앞뒤 순서: 바깥 층 depth(원근에서 가까울수록 앞) → 없으면 고정 z
       function dep(c) { var pl = samplePlace(placeOf(c), Math.min(tt, DUR)); return pl[5] != null ? pl[5] : (c.z || 0); }
       var order = cast.slice().sort(function (a, b) { return dep(a) - dep(b) || (a.z || 0) - (b.z || 0); });
+      last.__order = order.map(function (c) { return c.id; });   // 이번 프레임 그린 순서(뒤 → 앞), 검사용
       order.forEach(function (c) {
         var off = offsetsAt(c, T, after), fp = CP.finalPose(c.P, off, null), v = viewOf(c, after ? DUR : T);
         CP.render(ctx, c.P, fp, CP.worldMatrices(c.P, fp), v);

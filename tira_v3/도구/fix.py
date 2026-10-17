@@ -77,6 +77,12 @@ for n,f in FIRES.items():
     A=w[...,3:4]; rgb=np.where(A>0.5,w[...,:3]/np.maximum(A,1e-3)*255,0)
     out=np.clip(np.concatenate([rgb,A],2),0,255).astype(np.uint8); cv2.imwrite(OUT+n+'.png',out)
     ys,xs=np.where(out[...,3]>127); LOG[n]=dict(inset_px=INSET,scale=s_,source_root=f['root'],fireRoot=[round(float(v),2) for v in FR],visible_bbox=[int(xs.min()),int(ys.min()),int(xs.max()),int(ys.max())])
+# 팻말: 물림점(꼭지 상단)이 정면물기 머리(06)의 입 물림점에 오도록 배치. 2026-10-17: 사용자 요청으로 원래 배율의 1.25배
+SIGN_SCALE=1.25
+G6=J['06']['mouthGrip_after_transform']
+for i,n in (('14','sign14'),('11','sign11')):
+    cv2.imwrite(OUT+n+'.png',placed(i,sign_M(i,G6,J[i].get('scale',1)*SIGN_SCALE)))
+    LOG[n]=dict(scale=round(J[i].get('scale',1)*SIGN_SCALE,6),base_scale=J[i].get('scale',1),x=SIGN_SCALE,bite_anchor=J[i]['source_bite_anchor'],mouthGrip06=G6)
 LOG['body_colors']=[list(map(round,k)) for k in KB]
 json.dump(LOG,open(OUT+'fixlog.json','w'),indent=1)
 print(json.dumps(LOG))
