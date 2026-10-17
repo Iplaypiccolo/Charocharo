@@ -175,7 +175,7 @@
   }
   function preload(p) {
     var ids = [];
-    p.parts.forEach(function (pt) { pt.images.forEach(function (v) { ids.push(v.asset); }); });
+    p.parts.forEach(function (pt) { pt.images.forEach(function (v) { if (ids.indexOf(v.asset) < 0) ids.push(v.asset); }); });   // 같은 그림을 여러 파츠가 써도 한 번만
     return Promise.all(ids.map(function (id) {
       return new Promise(function (res) {
         var src = p.assets && p.assets[id];
