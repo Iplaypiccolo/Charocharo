@@ -1,0 +1,56 @@
+[
+  {
+    "file": "첨다니_차체바탕_와이파이분리.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      323,
+      399,
+      932,
+      990
+    ]
+  },
+  {
+    "file": "첨다니_와이파이_신호강함.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      530,
+      815,
+      724,
+      960
+    ]
+  },
+  {
+    "file": "첨다니_와이파이_신호약함.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      527,
+      812,
+      727,
+      962
+    ]
+  }
+]
