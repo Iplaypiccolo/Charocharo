@@ -1,0 +1,34 @@
+{
+ "faceSeq": [
+  [
+   0,
+   "0,0,0,0,0"
+  ],
+  [
+   2.3,
+   "3,3,3,3,1"
+  ],
+  [
+   4.55,
+   "0,0,0,0,0"
+  ]
+ ],
+ "firstAir": 2.304,
+ "faceB_at": 2.3,
+ "maxFastWing_dps": 948,
+ "maxSlowWing_dps": 135,
+ "jump_apex_px": 39.7,
+ "jump_apex_ratio_H": 0.17,
+ "apex_t": 3.3,
+ "scale_outside_095_105": "none",
+ "tira_window_max": {
+  "y": 3,
+  "wing_deg": 18
+ },
+ "flip_window_max": {
+  "y": 0,
+  "rot": 0,
+  "wing_deg": 6
+ },
+ "end_vs_breath0_maxdiff": 0
+}

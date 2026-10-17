@@ -1,0 +1,32 @@
+{
+ "clipped_pixels_outside_screen": "none",
+ "charo_vs_welcome_text_px": "none",
+ "charo_over_friend_face_px": "none",
+ "lineup_max_step_px_per_0.05s": 20,
+ "skip_equals_end": "same",
+ "end_to_wait_box_delta": 0,
+ "resize_box_delta_logical": 0.1,
+ "input_does_not_change_pose": true,
+ "pet_engine_mounted": false,
+ "scripts": [
+  "charo-pet.js",
+  "charo-intro.js",
+  "intro-cast.js",
+  "preview.js"
+ ],
+ "reduce_charo_at_3s": [
+  371.22,
+  0,
+  0,
+  0
+ ],
+ "reduce_final_box_delta": 0.1,
+ "mobile_scroll": [
+  390,
+  390
+ ],
+ "mobile_final_box_delta": 0.1,
+ "broken_image": "error / charocharo 그림을 불러오지 못함: a_wingL",
+ "broken_canvas_blank": true,
+ "errors": []
+}
