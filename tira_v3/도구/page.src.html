@@ -137,6 +137,8 @@ details summary{cursor:pointer;font-weight:500}
       <figcaption>2. 느린 머리 회전(×4). 빨간 선 아래 발·몸통 윤곽이 모든 칸에서 같은 자리에 있습니다. 위 뼈깃만 얼굴과 함께 이동합니다.</figcaption></figure>
     <figure><div class="shot"><img id="im_zoom" alt="확대한 팻말 꺼내기 프레임"></div>
       <figcaption>3. 입 주변 확대(×3 느리게): 등 뒤에서 물기 → 몸 오른쪽 뒤로 옆면이 조금 → 앞 옆면 → 정면으로 펼쳐지며 거꾸로 ‘환영’ → 판만 흔들리다 안정.</figcaption></figure>
+    <figure><div class="shot"><img id="im_fire" alt="큰 불꽃 뿌리 확대"></div>
+      <figcaption>5. 불꽃 교체본: 위 줄 = 0.53 작은 불 · 0.61 큰 불, 아래 줄 = 0.67 큰 불(흔들림) · 0.72 작은 불. 뿌리가 모두 입 왼쪽 끝 같은 자리에 붙어 있습니다.</figcaption></figure>
     <figure><div class="shot fit"><img id="im_size" alt="실제 표시 크기"></div>
       <figcaption>4. 실제 크기(키 120·150·180px): 불뿜기 순간 · 뒤보기 · 거꾸로 물기.</figcaption></figure>
   </section>
@@ -167,7 +169,7 @@ var REPORT = /*@@REPORT@@*/null;
   $('summary').innerHTML = REPORT.summary.map(function(r){ return '<p class="note" style="margin:8px 0 0">'+esc(r)+'</p>'; }).join('');
   var cnt = {}; REPORT.checks.forEach(function(r){ cnt[r[1]] = (cnt[r[1]]||0)+1; });
   $('sum').innerHTML = Object.keys(cnt).map(function(k){ return '<span class="pill '+(CLS[k]||'na')+'">검수 '+k+' '+cnt[k]+'</span>'; }).join('');
-  $('im_cmp').src = IMG.cmp; $('im_turn').src = IMG.turn; $('im_zoom').src = IMG.zoom; $('im_size').src = IMG.size;
+  $('im_cmp').src = IMG.cmp; $('im_turn').src = IMG.turn; $('im_zoom').src = IMG.zoom; $('im_size').src = IMG.size; $('im_fire').src = IMG.fire;
   $('rig').textContent = JSON.stringify(RIG, null, 1);
 
   var opt = { reduce: false };

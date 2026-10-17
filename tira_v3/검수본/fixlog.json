@@ -148,6 +148,42 @@
    ]
   }
  },
+ "fire12": {
+  "inset_px": 8,
+  "scale": 0.752212,
+  "source_root": [
+   418,
+   556.5
+  ],
+  "fireRoot": [
+   394.11,
+   568.81
+  ],
+  "visible_bbox": [
+   318,
+   551,
+   401,
+   586
+  ]
+ },
+ "fire13b": {
+  "inset_px": 8,
+  "scale": 0.307,
+  "source_root": [
+   1175,
+   638
+  ],
+  "fireRoot": [
+   394.11,
+   568.81
+  ],
+  "visible_bbox": [
+   66,
+   462,
+   402,
+   649
+  ]
+ },
  "body_colors": [
   [
    64,

@@ -23,7 +23,7 @@ def asset(key, im, pad=3):
 def img(name, key, fname): d = asset(key, load(fname)); d['name'] = name; return d
 
 PIV = {'rig': (640, 1121), 'sway': (627, 1112), 'head': (603, 650), 'bite': tuple(G6), 'tail': (790, 960),
-       'footL': (478, 1032), 'footR': (747, 1032), 'body': (627, 1040), 'fire': FIRE_ROOT}
+       'footL': (478, 1032), 'footR': (747, 1032), 'body': (627, 1040), 'fire': (round(FIRE_ROOT[0] + 8, 2), FIRE_ROOT[1])}   # 불꽃 뿌리 = fireRoot + 입 안쪽 8px(fix.py INSET) → 커지고 흔들려도 뿌리 고정
 S = 0.30; RIG_AT = (200, 385)
 def R(x, y, rot=0, s=1, op=1): return dict(x=x, y=y, rot=rot, sx=s, sy=s, op=op, img=0)
 def part(id, name, parent, piv, images):
@@ -45,7 +45,7 @@ parts = [   # 그림 그리는 순서 = 뒤 → 앞
     part('sign11F', '팻말 옆면(앞으로 나옴)', 'bite', PIV['bite'], [img('11 옆면', 'sign11f', 'sign11')]),
     part('sign14', '팻말 정면 ‘환영’ 거꾸로(14번 그대로)', 'bite', PIV['bite'], [img('14 거꾸로환영', 'sign14', 'sign14')]),
     part('mask', '입 앞가림(이빨·아랫입술)', 'head', PIV['head'], [img('04 입 앞가림', 'mask04', 'mask04'), img('06 입 앞가림', 'mask06', 'mask06')]),
-    part('fire', '불꽃(입 왼쪽 끝 뿌리 고정)', 'head', PIV['fire'], [img('12 불꽃 작게', 'fire12', 'fire12'), img('13 불꽃 뿍', 'fire13', 'fire13')]),
+    part('fire', '불꽃(입 왼쪽 끝 뿌리 고정)', 'head', PIV['fire'], [img('12 불꽃 작게', 'fire12', 'fire12'), img('13 불꽃 크게(교체본)', 'fire13b', 'fire13b')]),
 ]
 HI = {k: i for i, (_, k) in enumerate(HEADS)}
 FACES = [dict(id='f02', name='① 정면 기본', img=dict(headImg=0), mods={}),
@@ -104,6 +104,10 @@ for t, f in FIRE:
     op.append((t, 0 if f is None else 1))
     if f: fim.append((t, 0 if f == 'small' else 1, 0))
 c.ops('fire', op + [(END, 0)]); c.im('fire', fim); c.c['fireFrames'] = [[t, f] for t, f in FIRE]
+# 큰 불: 뿌리(=fire 파츠의 기준점, 입 왼쪽 끝)를 축으로 커졌다 줄며 살짝 흔들림. 뿌리 위치는 움직이지 않음
+c.k('fire', 'sx', [(0, 1), (0.60, 0.78, 'out'), (0.64, 1.0), (0.67, 1.04), (0.70, 1.0, 'step'), (END, 1)])
+c.k('fire', 'sy', [(0, 1), (0.60, 0.85, 'out'), (0.64, 1.0), (0.67, 0.96), (0.70, 1.0, 'step'), (END, 1)])
+c.k('fire', 'rot', [(0, 0), (0.60, 0), (0.63, -3), (0.67, 2), (0.70, 0, 'step'), (END, 0)])
 # 머리 자세(한 번에 한 장): 기본 → 뜨거워 → 기본 → 오른쪽중간 → 뒤보기 → 오른쪽중간 → 정면물기
 HEADK = [(0, '02'), (0.60, '03'), (0.86, '02'), (1.56, '04'), (1.68, '05'), (2.17, '04'), (2.35, '06')]
 c.im('headImg', [(t, HI[k], 0) for t, k in HEADK])   # 시점 교체는 즉시(교차 페이드로 눈·이빨이 두 겹 되는 것 방지)

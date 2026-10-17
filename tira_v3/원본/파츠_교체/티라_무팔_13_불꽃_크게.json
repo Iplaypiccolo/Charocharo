@@ -1,0 +1,40 @@
+{
+  "asset": "티라_무팔_13_불꽃_크게.png",
+  "replaces_id": "13",
+  "old_file": "티라_무팔_13_불꽃_뿍.png",
+  "canvas": [
+    1254,
+    1254
+  ],
+  "format": "PNG RGBA",
+  "source_flame_root": [
+    1175,
+    638
+  ],
+  "visible_bbox_alpha_over_127": [
+    79,
+    288,
+    1176,
+    902
+  ],
+  "initial_scale_in_original_rig_parent_coordinates": 0.307,
+  "initial_visible_size_in_original_rig_parent_coordinates": [
+    336.779,
+    188.498
+  ],
+  "size_relative_to_old_13_at_its_original_rig_scale": {
+    "width": 2.694,
+    "height": 3.407
+  },
+  "direction": "mouth at right; flame points left",
+  "keep_small_asset_12": true,
+  "placement": "fireRoot + scale * R * (p_source - source_flame_root), then inherit head and character transforms",
+  "status": "PNG 투명 배경과 크기 확인 완료. 연결점·배율은 초기값이며 대상 사이트 합성·재생 검수는 미실시.",
+  "revision": "v2_굵은만화불꽃_노란불심",
+  "size_relative_to_previous_red_only_revision_at_same_scale": {
+    "width": 1.171,
+    "height": 1.587
+  },
+  "color_layers": "붉은 바깥층, 주황 중간층, 노란 불심 — 모두 PNG에 포함",
+  "no_extra_enlargement_multiplier": true
+}

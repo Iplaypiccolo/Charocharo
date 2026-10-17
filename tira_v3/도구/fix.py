@@ -64,6 +64,19 @@ w=np.clip((yy-620)/(652-620),0,1)*((yy<=660))
 zone=((xx<385)|((xx>828)&(xx<884)))
 c[...,3]=(c[...,3]*w*dark*zone).astype(np.uint8)
 cv2.imwrite(OUT+'collar.png',c)
+# 불꽃: 각 불꽃의 '입에 붙는 뿌리'를 머리 02/03의 fireRoot에 맞춰 1254 좌표에 배치(p_out = fireRoot + s·(p − root))
+FR=np.array(J['02']['fireRoot_source'])*J['02']['scale']+[J['02']['translate_x'],J['02']['translate_y']]
+FIRES={'fire12':dict(src=FILES['12'],s=J['12']['scale'],root=J['12']['source_flame_root']),
+       # 13번 교체(2026-10-17): 굵은 만화 불꽃. 이전 13번 값(0.68306, 423,563.5)은 쓰지 않음
+       'fire13b':dict(src='/home/claude/tira3/src/파츠_교체/티라_무팔_13_불꽃_크게.png',s=0.307,root=[1175,638])}
+INSET=8   # 뿌리를 입 안쪽으로 8px(1254 좌표, 실제 화면 약 1.5px) 겹침. fireRoot 값 자체는 그대로
+for n,f in FIRES.items():
+    im=cv2.imread(f['src'],cv2.IMREAD_UNCHANGED); s_=f['s']; t=FR+[INSET,0]-s_*np.array(f['root'],float)
+    a=im.astype(np.float32); al=a[...,3:4]/255; pm=np.concatenate([a[...,:3]*al,a[...,3:4]],2)
+    w=cv2.warpAffine(pm,np.array([[s_,0,t[0]],[0,s_,t[1]]]),(N,N),flags=cv2.INTER_AREA,borderValue=(0,0,0,0))
+    A=w[...,3:4]; rgb=np.where(A>0.5,w[...,:3]/np.maximum(A,1e-3)*255,0)
+    out=np.clip(np.concatenate([rgb,A],2),0,255).astype(np.uint8); cv2.imwrite(OUT+n+'.png',out)
+    ys,xs=np.where(out[...,3]>127); LOG[n]=dict(inset_px=INSET,scale=s_,source_root=f['root'],fireRoot=[round(float(v),2) for v in FR],visible_bbox=[int(xs.min()),int(ys.min()),int(xs.max()),int(ys.max())])
 LOG['body_colors']=[list(map(round,k)) for k in KB]
 json.dump(LOG,open(OUT+'fixlog.json','w'),indent=1)
 print(json.dumps(LOG))
