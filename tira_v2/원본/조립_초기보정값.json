@@ -1,0 +1,194 @@
+{
+  "status": "조립 출발점. 실제 합성/모션 검수 미완료",
+  "canvas": [
+    1254,
+    1254
+  ],
+  "transform_equation": "x_out = scale * x_source + translate_x; y_out = scale * y_source + translate_y",
+  "rendering": "전체1254 캔버스의 원점(0,0)을 기준으로 적용. SVG matrix(s 0 0 s tx ty) 또는 동일한 변환. 각 상태 PNG는 원본 좌표 유지, 자르지 말 것. 이후 캐릭터 전체 균일 배율을 별도로 적용.",
+  "important": "불꽃 뿌리 좌표는 근사값. 입 가장자리에서 실제 접촉 위치를 확인. 어깨 접합은 마스크와 색 일치 검수 필요. 팻말과 손의 겹침 순서 검수 필요.",
+  "parts": [
+    {
+      "file": "티라_v2_몸통바탕.png",
+      "scale": 1,
+      "translate_x": 0,
+      "translate_y": 0,
+      "source_anchor": [
+        0,
+        0
+      ],
+      "target_anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "file": "티라_v2_화면왼팔_올림.png",
+      "scale": 0.512821,
+      "translate_x": 201.282,
+      "translate_y": 365.128,
+      "source_anchor": [
+        485,
+        770
+      ],
+      "target_anchor": [
+        450,
+        760
+      ]
+    },
+    {
+      "file": "티라_v2_화면오른팔_올림.png",
+      "scale": 0.517241,
+      "translate_x": 367.414,
+      "translate_y": 361.724,
+      "source_anchor": [
+        701,
+        770
+      ],
+      "target_anchor": [
+        730,
+        760
+      ]
+    },
+    {
+      "file": "티라_v2_눈_기본.png",
+      "scale": 1.0,
+      "translate_x": -0.5,
+      "translate_y": -11.5,
+      "source_anchor": [
+        590.5,
+        461.5
+      ],
+      "target_anchor": [
+        590,
+        450
+      ]
+    },
+    {
+      "file": "티라_v2_눈_질끈.png",
+      "scale": 0.823171,
+      "translate_x": 95.274,
+      "translate_y": 51.174,
+      "source_anchor": [
+        601.0,
+        484.5
+      ],
+      "target_anchor": [
+        590,
+        450
+      ]
+    },
+    {
+      "file": "티라_v2_입_기본이빨.png",
+      "scale": 0.788732,
+      "translate_x": 96.648,
+      "translate_y": 103.577,
+      "source_anchor": [
+        625.5,
+        566.0
+      ],
+      "target_anchor": [
+        590,
+        550
+      ]
+    },
+    {
+      "file": "티라_v2_입_환영웃음.png",
+      "scale": 0.880503,
+      "translate_x": 90.755,
+      "translate_y": 33.145,
+      "source_anchor": [
+        567.0,
+        587.0
+      ],
+      "target_anchor": [
+        590,
+        550
+      ]
+    },
+    {
+      "file": "티라_v2_불꽃_작게.png",
+      "scale": 0.607477,
+      "translate_x": 172.383,
+      "translate_y": 214.977,
+      "source_anchor": [
+        457,
+        551.5
+      ],
+      "target_anchor": [
+        450,
+        550
+      ]
+    },
+    {
+      "file": "티라_v2_불꽃_뿍.png",
+      "scale": 0.684932,
+      "translate_x": 123.288,
+      "translate_y": 177.055,
+      "source_anchor": [
+        477,
+        544.5
+      ],
+      "target_anchor": [
+        450,
+        550
+      ]
+    },
+    {
+      "file": "티라_v2_화면왼발.png",
+      "scale": 0.795455,
+      "translate_x": 90.568,
+      "translate_y": 206.659,
+      "source_anchor": [
+        521.0,
+        1025.0
+      ],
+      "target_anchor": [
+        505,
+        1022
+      ]
+    },
+    {
+      "file": "티라_v2_화면오른발.png",
+      "scale": 0.833333,
+      "translate_x": 115.833,
+      "translate_y": 181.583,
+      "source_anchor": [
+        671.0,
+        1008.5
+      ],
+      "target_anchor": [
+        675,
+        1022
+      ]
+    },
+    {
+      "file": "티라_v2_꼬리.png",
+      "scale": 0.75,
+      "translate_x": 212.75,
+      "translate_y": 276.0,
+      "source_anchor": [
+        719,
+        872
+      ],
+      "target_anchor": [
+        752,
+        930
+      ]
+    },
+    {
+      "file": "티라_v2_팻말_빈판.png",
+      "scale": 0.922619,
+      "translate_x": 38.274,
+      "translate_y": 45.714,
+      "source_anchor": [
+        598.0,
+        720.0
+      ],
+      "target_anchor": [
+        590,
+        710
+      ]
+    }
+  ]
+}

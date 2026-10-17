@@ -1,0 +1,236 @@
+[
+  {
+    "file": "티라_v2_몸통바탕.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      390,
+      263,
+      865,
+      1013
+    ]
+  },
+  {
+    "file": "티라_v2_화면왼팔_올림.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      251,
+      612,
+      485,
+      857
+    ]
+  },
+  {
+    "file": "티라_v2_화면오른팔_올림.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      701,
+      608,
+      933,
+      853
+    ]
+  },
+  {
+    "file": "티라_v2_눈_기본.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      523,
+      438,
+      658,
+      485
+    ]
+  },
+  {
+    "file": "티라_v2_눈_질끈.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      519,
+      453,
+      683,
+      516
+    ]
+  },
+  {
+    "file": "티라_v2_입_기본이빨.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      448,
+      504,
+      803,
+      628
+    ]
+  },
+  {
+    "file": "티라_v2_입_환영웃음.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      408,
+      514,
+      726,
+      660
+    ]
+  },
+  {
+    "file": "티라_v2_불꽃_작게.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      350,
+      515,
+      457,
+      588
+    ]
+  },
+  {
+    "file": "티라_v2_불꽃_뿍.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      331,
+      503,
+      477,
+      586
+    ]
+  },
+  {
+    "file": "티라_v2_화면왼발.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      477,
+      976,
+      565,
+      1074
+    ]
+  },
+  {
+    "file": "티라_v2_화면오른발.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      629,
+      951,
+      713,
+      1066
+    ]
+  },
+  {
+    "file": "티라_v2_꼬리.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      719,
+      787,
+      910,
+      956
+    ]
+  },
+  {
+    "file": "티라_v2_팻말_빈판.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      430,
+      627,
+      766,
+      813
+    ]
+  }
+]
