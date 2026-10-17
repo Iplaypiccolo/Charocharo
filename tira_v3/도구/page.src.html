@@ -1,0 +1,226 @@
+<meta charset="utf-8">
+<title>무팔 티라 검수</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 레이아웃: 위는 로그인 화면색 무대 + 조작판, 아래는 검수표·점검 이미지가 이어지는 한 줄 문서 */
+:root{
+  --bg:#f3f6f9; --panel:#ffffff; --ink:#10243a; --sub:#4e6274; --line:#d6e1e9;
+  --gate1:#1f5f8f; --gate2:#10243a; --accent:#1f5f8f; --accent-ink:#ffffff;
+  --ok:#1e7a46; --ok-bg:#e3f4ea; --fix:#8a5a00; --fix-bg:#fff1c9; --art:#b3261e; --art-bg:#fde8e6; --na:#55606b; --na-bg:#e9edf1;
+  --sans:"IBM Plex Sans KR","Pretendard",-apple-system,"Malgun Gothic","Noto Sans KR",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1824; --panel:#14222f; --ink:#e4edf5; --sub:#9db0c1; --line:#29404f; --accent:#6fb0e0; --accent-ink:#0d1824;
+  --ok:#7fd6a2; --ok-bg:#163526; --fix:#f1c25b; --fix-bg:#3a2e10; --art:#ff9a8f; --art-bg:#3d1916; --na:#b5c0ca; --na-bg:#25313c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1824; --panel:#14222f; --ink:#e4edf5; --sub:#9db0c1; --line:#29404f; --accent:#6fb0e0; --accent-ink:#0d1824;
+  --ok:#7fd6a2; --ok-bg:#163526; --fix:#f1c25b; --fix-bg:#3a2e10; --art:#ff9a8f; --art-bg:#3d1916; --na:#b5c0ca; --na-bg:#25313c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font-size:24px;margin:0;text-wrap:balance;font-weight:700}
+h2{font-size:18px;margin:0 0 10px;text-wrap:balance}
+.lead{margin:4px 0 0;color:var(--sub);max-width:68ch}
+.top{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+@media (max-width:760px){.top{grid-template-columns:1fr}}
+.stage{background:linear-gradient(160deg,var(--gate1),var(--gate2));border-radius:14px;min-height:340px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.stage.white{background:#ffffff}
+.stage canvas{display:block;max-width:100%}
+.hud{position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:500 12px var(--mono);background:rgba(255,255,255,.92);color:#10243a;border-radius:6px;padding:3px 8px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.grp{display:flex;flex-direction:column;gap:6px}
+.lbl{font-size:12px;letter-spacing:.04em;color:var(--sub);font-weight:500}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button{font:500 14px var(--sans);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.motion{display:grid;grid-template-columns:1fr;gap:6px}
+.motion button{text-align:left}
+label.tg{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.note{font-size:13px;color:var(--sub);margin:0}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--sub);font-weight:500;letter-spacing:.04em;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.f{font:13px var(--mono);white-space:nowrap}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.ok{color:var(--ok);background:var(--ok-bg)}.fix{color:var(--fix);background:var(--fix-bg)}.art{color:var(--art);background:var(--art-bg)}.na{color:var(--na);background:var(--na-bg)}
+.sum{display:flex;flex-wrap:wrap;gap:8px}
+.shot{background:#fff;border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.shot img{display:block;max-width:none;height:auto}
+.shot.fit img{max-width:100%}
+figure{margin:0;display:flex;flex-direction:column;gap:6px}
+figcaption{font-size:13px;color:var(--sub)}
+ol.req{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;max-width:72ch}
+code{font:13px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+pre{font:12.5px/1.5 var(--mono);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;margin:0}
+details summary{cursor:pointer;font-weight:500}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>무팔 티라(v3) 검수 미리보기</h1>
+    <p class="lead">새 ZIP의 팔 없는 티라 파츠 14장으로 새로 조립한 검수본입니다. 예전 티라(v1·v2)의 그림과 동작은 하나도 쓰지 않았어요. 머리만 뒤로 돌려 등 뒤의 팻말을 입으로 물어 꺼내고, ‘환영’이 관객에게 거꾸로 보이는 채로 끝까지 태연하게 물고 있습니다.</p>
+  </header>
+
+  <section class="top" aria-label="동작 미리보기">
+    <div class="stage" id="stage">
+      <canvas id="cv" aria-label="티라 동작 미리보기" role="img"></canvas>
+      <div class="hud"><span class="chip" id="hudClip">A 대기</span><span class="chip" id="hudT">0.00초</span><span class="chip" id="hudFace">머리: 02</span></div>
+    </div>
+    <div class="panel">
+      <div class="grp">
+        <span class="lbl">동작</span>
+        <button id="b_intro" class="main" type="button">B 전체 인트로(6.7초)</button>
+        <div class="motion" id="motions"></div>
+        <button id="b_stop" type="button">■ 건너뛰기(처음 상태로)</button>
+      </div>
+      <div class="grp">
+        <span class="lbl">캐릭터 키 (실제 표시 크기)</span>
+        <div class="btns" id="sizes">
+          <button type="button" data-h="120">120px</button>
+          <button type="button" data-h="150">150px</button>
+          <button type="button" data-h="180">180px</button>
+          <button type="button" data-h="300">크게</button>
+        </div>
+      </div>
+      <div class="grp">
+        <span class="lbl">점검</span>
+        <label class="tg"><input type="checkbox" id="t_piv"> 회전 기준점 표시</label>
+        <label class="tg"><input type="checkbox" id="t_reduce"> 모션 줄이기(인트로 → H 버전)</label>
+        <label class="tg"><input type="checkbox" id="t_white"> 흰 배경</label>
+      </div>
+      <p class="note">자동 깜빡임·시선 따라가기는 없습니다(눈이 머리 그림에 포함). 그래서 지정한 머리 그림을 다른 반응이 덮어쓰지 않습니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>요약</h2>
+    <div class="sum" id="sum"></div>
+    <div id="summary"></div>
+  </section>
+
+  <section>
+    <h2>최종 타이밍</h2>
+    <div class="tbl"><table><thead><tr><th>시각(초)</th><th>머리</th><th>팻말</th><th>불</th><th>내용</th></tr></thead><tbody id="tl"></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>파츠별 검수·보정값</h2>
+    <div class="tbl"><table><thead><tr><th>파일</th><th>결과</th><th>보정·확인 내용</th></tr></thead><tbody id="rows"></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>검수 항목</h2>
+    <div class="tbl"><table><thead><tr><th>항목</th><th>결과</th><th>근거</th></tr></thead><tbody id="rows2"></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>그림 수정 권장 (GPT 전달용)</h2>
+    <ol class="req" id="req"></ol>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:18px">
+    <h2>점검 이미지</h2>
+    <figure><div class="shot"><img id="im_cmp" alt="정면, 오른쪽 중간, 뒤보기, 정면 입물림 정지 비교"></div>
+      <figcaption>1. 정지 비교: 정면 조립 · 오른쪽 중간 · 뒤보기 · 정면 입물림(14번), 오른쪽은 받은 참고 그림.</figcaption></figure>
+    <figure><div class="shot"><img id="im_turn" alt="느린 머리 회전 프레임"></div>
+      <figcaption>2. 느린 머리 회전(×4). 빨간 선 아래 발·몸통 윤곽이 모든 칸에서 같은 자리에 있습니다. 위 뼈깃만 얼굴과 함께 이동합니다.</figcaption></figure>
+    <figure><div class="shot"><img id="im_zoom" alt="확대한 팻말 꺼내기 프레임"></div>
+      <figcaption>3. 입 주변 확대(×3 느리게): 등 뒤에서 물기 → 몸 오른쪽 뒤로 옆면이 조금 → 앞 옆면 → 정면으로 펼쳐지며 거꾸로 ‘환영’ → 판만 흔들리다 안정.</figcaption></figure>
+    <figure><div class="shot fit"><img id="im_size" alt="실제 표시 크기"></div>
+      <figcaption>4. 실제 크기(키 120·150·180px): 불뿜기 순간 · 뒤보기 · 거꾸로 물기.</figcaption></figure>
+  </section>
+
+  <section>
+    <h2>배치·회전 기준점 데이터</h2>
+    <p class="note" style="margin-bottom:8px">좌표는 원래 캔버스 1254×1254 기준이고, 잘라낸 그림마다 원래 위치(x, y)와 크기를 기록했습니다. 같은 내용이 <code>rig.json</code>, 캐릭터 파일은 <code>tira_v3.json</code>입니다.</p>
+    <details><summary>데이터 펼쳐 보기</summary><pre id="rig"></pre></details>
+  </section>
+</div>
+
+<script>/*@@PLAYER@@*/</script>
+<script>
+var P = /*@@JSON@@*/null;
+var RIG = /*@@RIG@@*/null;
+var IMG = /*@@IMG@@*/null;
+var REPORT = /*@@REPORT@@*/null;
+(function(){
+  'use strict';
+  var CP = window.CharoPet, $ = function(id){ return document.getElementById(id); };
+  var CLS = {'통과':'ok','코드 보정으로 해결':'fix','그림 수정 필요':'art','그림 수정 권장':'art','미확인':'na','참고':'na','수정 필요':'art'};
+  function pill(t){ return '<span class="pill '+(CLS[t]||'na')+'">'+t+'</span>'; }
+  function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+  $('rows').innerHTML = REPORT.parts.map(function(r){ return '<tr><td class="f">'+esc(r[0])+'</td><td>'+pill(r[1])+'</td><td>'+esc(r[2])+'</td></tr>'; }).join('');
+  $('rows2').innerHTML = REPORT.checks.map(function(r){ return '<tr><td>'+esc(r[0])+'</td><td>'+pill(r[1])+'</td><td>'+esc(r[2])+'</td></tr>'; }).join('');
+  $('tl').innerHTML = REPORT.timeline.map(function(r){ return '<tr><td class="f">'+esc(r[0])+'</td><td class="f">'+esc(r[1])+'</td><td>'+esc(r[2])+'</td><td>'+esc(r[3])+'</td><td>'+esc(r[4])+'</td></tr>'; }).join('');
+  $('req').innerHTML = REPORT.requests.map(function(r){ return '<li>'+esc(r)+'</li>'; }).join('');
+  $('summary').innerHTML = REPORT.summary.map(function(r){ return '<p class="note" style="margin:8px 0 0">'+esc(r)+'</p>'; }).join('');
+  var cnt = {}; REPORT.checks.forEach(function(r){ cnt[r[1]] = (cnt[r[1]]||0)+1; });
+  $('sum').innerHTML = Object.keys(cnt).map(function(k){ return '<span class="pill '+(CLS[k]||'na')+'">검수 '+k+' '+cnt[k]+'</span>'; }).join('');
+  $('im_cmp').src = IMG.cmp; $('im_turn').src = IMG.turn; $('im_zoom').src = IMG.zoom; $('im_size').src = IMG.size;
+  $('rig').textContent = JSON.stringify(RIG, null, 1);
+
+  var opt = { reduce: false };
+  try { opt.reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+  $('t_reduce').checked = opt.reduce;
+  var eng = new CP.Engine(P, opt); window.__eng = eng;
+  var cv = $('cv'), ctx = cv.getContext('2d'), charH = 180, showPiv = false;
+  var NAMES = {}; P.clips.forEach(function(c){ NAMES[c.id] = c.name; });
+  var HEADS = ['02 정면','03 뜨거워','04 오른쪽중간','05 뒤보기','06 정면물기'];
+  P.preview.forEach(function(pv){
+    if (pv.clip === 't_idle' || pv.clip === 't_intro') return;
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = pv.label; b.id = 'b_' + pv.clip;
+    b.onclick = function(){ play(pv.clip); }; $('motions').appendChild(b);
+  });
+  function size(){
+    var px = Math.round(charH / 277 * 400), dpr = window.devicePixelRatio || 1;
+    var maxW = Math.max(160, $('stage').clientWidth - 8); px = Math.min(px, maxW);
+    cv.style.width = px + 'px'; cv.style.height = px + 'px'; cv.width = Math.round(px * dpr); cv.height = Math.round(px * dpr);
+    Array.prototype.forEach.call(document.querySelectorAll('#sizes button'), function(b){ b.setAttribute('aria-pressed', String(+b.dataset.h === charH)); });
+  }
+  window.addEventListener('resize', size);
+  document.querySelectorAll('#sizes button').forEach(function(b){ b.addEventListener('click', function(){ charH = +b.dataset.h; size(); }); });
+  var t0 = 0;
+  function play(id){
+    if (opt.reduce && P.reducedClip && P.reducedClip[id]) id = P.reducedClip[id];   // 모션 줄이기: 머리 돌리기·불·흔들림 없는 버전
+    eng.play(id); t0 = performance.now();
+  }
+  $('b_intro').onclick = function(){ play('t_intro'); };
+  $('b_stop').onclick = function(){ eng.setAuto(true); eng.one = null; eng._snap(); };   // 건너뛰기: 시점·불·팻말·흔들림·시간 모두 처음으로
+  $('t_piv').onchange = function(){ showPiv = this.checked; };
+  $('t_reduce').onchange = function(){ opt.reduce = this.checked; };
+  $('t_white').onchange = function(){ $('stage').classList.toggle('white', this.checked); };
+  function frame(t){
+    var off = eng.update(t);
+    var fp = CP.finalPose(P, off, null), sc = cv.width / 400, view = [sc,0,0,sc,0,0];
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+    var W = CP.worldMatrices(P, fp); CP.render(ctx, P, fp, W, view);
+    if (showPiv) {
+      P.parts.forEach(function(pt){
+        var m = CP.mul(view, W[pt.id]), q = CP.apply(m, pt.pivot.x, pt.pivot.y);
+        ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle = '#ff3b30'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(3, sc*6), 0, 7); ctx.fill(); ctx.stroke();
+      });
+    }
+    var id = eng.one ? eng.one.id : 't_idle';
+    var sign = fp.sign14.op > 0.5 ? '정면 거꾸로' : fp.sign11F.op > 0.5 ? '앞 옆면' : fp.sign11B.op > 0.5 ? '등 뒤 옆면' : '없음';
+    var fire = fp.fire.op > 0.5 ? (fp.fire.img === 1 ? '뿍' : '작게') : '없음';
+    $('hudClip').textContent = NAMES[id] || id;
+    $('hudT').textContent = (id === 't_idle' ? 0 : (performance.now() - t0) / 1000).toFixed(2) + '초';
+    $('hudFace').textContent = '머리 ' + HEADS[fp.headImg.img] + ' · 팻말 ' + sign + ' · 불 ' + fire;
+    window.__gt = { clip: id, head: fp.headImg.img, sign: sign, fire: fire, mask: fp.mask.op };
+    requestAnimationFrame(frame);
+  }
+  CP.preload(P).then(function(){ size(); requestAnimationFrame(frame); });
+})();
+</script>

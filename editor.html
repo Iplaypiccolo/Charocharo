@@ -1138,7 +1138,7 @@ function normalize(p) {
 var CHARS = [
   { id: 'charocharo', name: '차로차로', file: 'charo-pet.json' },
   { id: 'chumdani', name: '첨다니', file: 'chumdani/chumdani.json' },
-  { id: 'tira', name: '티라', file: 'tira_v2/tira_v2.json' },
+  { id: 'tira', name: '티라', file: 'tira_v3/tira_v3.json', store: 'tira_v3' },   // v3(팔 없음): 예전 v2 자동 보관과 섞이지 않게 보관 칸을 새로
   { id: 'giltong', name: '길통이', file: 'giltong/giltong.json' },
   { id: 'doroduck', name: '도로덕', file: 'doroduck/doroduck.json' }
 ];
@@ -1150,7 +1150,7 @@ var CHAR = (function () {
 })();
 try { localStorage.setItem('charoMotionEditor.char', CHAR.id); } catch (e) {}
 var FILE_NAME = CHAR.file.split('/').pop();
-var STORE_KEY = CHAR.id === 'charocharo' ? 'charoMotionEditor.v1' : 'charoMotionEditor.v1.' + CHAR.id;
+var STORE_KEY = CHAR.id === 'charocharo' ? 'charoMotionEditor.v1' : 'charoMotionEditor.v1.' + (CHAR.store || CHAR.id);
 function loadSaved() {
   try {
     var raw = localStorage.getItem(STORE_KEY);

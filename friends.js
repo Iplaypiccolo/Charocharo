@@ -5,7 +5,7 @@
   var CHARS = [
     { id: 'charocharo', name: '차로차로', file: 'charo-pet.json', review: null, note: '마우스·클릭·타자·시간에 반응하는 메인 캐릭터' },
     { id: 'chumdani', name: '첨다니', file: 'chumdani/chumdani.json', review: 'chumdani/review.html', note: '와이파이 감정 신호 · 공중제비' },
-    { id: 'tira', name: '티라', file: 'tira_v2/tira_v2.json', review: 'tira_v2/review.html', note: "'환영' 팻말 · 불뿜기 (v2)" },
+    { id: 'tira', name: '티라', file: 'tira_v3/tira_v3.json', review: 'tira_v3/review.html', note: "팔 없이 입으로 문 거꾸로 '환영' 팻말 · 불뿜기 (v3)" },
     { id: 'giltong', name: '길통이', file: 'giltong/giltong.json', review: 'giltong/review.html', note: '한 발 들고 인사' },
     { id: 'doroduck', name: '도로덕', file: 'doroduck/doroduck.json', review: 'doroduck/review.html', note: "'합니다!' 팻말" }
   ];
@@ -41,7 +41,7 @@
         })
         .catch(function () { if (cur === c) btns.innerHTML = '<span class="hint">캐릭터 파일을 불러오지 못했어요.</span>'; });
     }
-    btns.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && eng) eng.play(b.dataset.clip); });
+    btns.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && eng) { var id = b.dataset.clip; if (reduce && P.reducedClip && P.reducedClip[id]) id = P.reducedClip[id]; eng.play(id); } });   // 모션 줄이기: 캐릭터가 따로 준비한 버전이 있으면 그것으로
     cv.addEventListener('pointermove', function (e) { if (!eng) return; var r = cv.getBoundingClientRect(); eng.pointer(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2, r.width / 400); });
     function loop(t) {
       raf = requestAnimationFrame(loop);

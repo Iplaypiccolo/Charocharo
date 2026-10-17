@@ -1,0 +1,30 @@
+{
+ "boundary_frames": 1,
+ "faces": [
+  "02",
+  "03",
+  "06"
+ ],
+ "max_mouth_gap_world_px": 0,
+ "beat_frames_moving": 0,
+ "final": {
+  "head": "06",
+  "sign14": 1,
+  "fire": 0,
+  "rot": 0
+ },
+ "reduced": {
+  "heads": [
+   "06"
+  ],
+  "fire": 0,
+  "sign14_min": 1
+ },
+ "idle_layers": [
+  0,
+  0,
+  0,
+  0,
+  0
+ ]
+}

@@ -1,0 +1,297 @@
+[
+  {
+    "id": "01",
+    "file": "파츠/티라_무팔_01_고정아랫몸통.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      317,
+      618,
+      969,
+      1040
+    ]
+  },
+  {
+    "id": "02",
+    "file": "파츠/티라_무팔_02_머리_정면.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      257,
+      138,
+      1036,
+      721
+    ],
+    "source_root_row": 713,
+    "source_tan_root_span": [
+      288,
+      902
+    ]
+  },
+  {
+    "id": "03",
+    "file": "파츠/티라_무팔_03_머리_뜨거워.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      255,
+      136,
+      1037,
+      721
+    ],
+    "source_root_row": 713,
+    "source_tan_root_span": [
+      288,
+      902
+    ]
+  },
+  {
+    "id": "04",
+    "file": "파츠/티라_무팔_04_머리_오른쪽중간.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      291,
+      204,
+      1028,
+      831
+    ],
+    "source_root_row": 823,
+    "source_tan_root_span": [
+      327,
+      1002
+    ]
+  },
+  {
+    "id": "05",
+    "file": "파츠/티라_무팔_05_머리_뒤보기.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      279,
+      253,
+      1016,
+      836
+    ],
+    "source_root_row": 828,
+    "source_tan_root_span": [
+      313,
+      987
+    ]
+  },
+  {
+    "id": "06",
+    "file": "파츠/티라_무팔_06_머리_정면물기.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      175,
+      135,
+      1152,
+      831
+    ],
+    "source_root_row": 823,
+    "source_tan_root_span": [
+      218,
+      987
+    ]
+  },
+  {
+    "id": "07",
+    "file": "파츠/티라_무팔_07_화면왼발.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      420,
+      1027,
+      539,
+      1115
+    ]
+  },
+  {
+    "id": "08",
+    "file": "파츠/티라_무팔_08_화면오른발.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      683,
+      1037,
+      815,
+      1122
+    ]
+  },
+  {
+    "id": "09",
+    "file": "파츠/티라_무팔_09_꼬리.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      762,
+      838,
+      1020,
+      1038
+    ]
+  },
+  {
+    "id": "10",
+    "file": "파츠/티라_무팔_10_입물림팻말_정면빈판.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      413,
+      640,
+      804,
+      836
+    ]
+  },
+  {
+    "id": "11",
+    "file": "파츠/티라_무팔_11_입물림팻말_옆면.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      603,
+      628,
+      653,
+      843
+    ]
+  },
+  {
+    "id": "12",
+    "file": "파츠/티라_무팔_12_불꽃_작게.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      305,
+      532,
+      418,
+      581
+    ]
+  },
+  {
+    "id": "13",
+    "file": "파츠/티라_무팔_13_불꽃_뿍.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      240,
+      523,
+      423,
+      604
+    ]
+  },
+  {
+    "id": "14",
+    "file": "파츠/티라_무팔_14_팻말_거꾸로환영.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "visible_bbox_alpha_over_127": [
+      275,
+      575,
+      979,
+      936
+    ],
+    "text": "환영",
+    "text_baked_rotation_degrees": 180,
+    "runtime_extra_text_rotation_degrees": 0,
+    "usage": "정면 팻말 우선 선택. 10번+코드 글자와 동시 표시 금지."
+  }
+]

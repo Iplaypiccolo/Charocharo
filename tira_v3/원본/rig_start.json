@@ -1,0 +1,257 @@
+{
+  "status": "자동 초기 정합값. 실제 합성/모션 QA 미완료",
+  "source_canvas": [
+    1254,
+    1254
+  ],
+  "transform_equation": "x_out=s*x_source+translate_x; y_out=s*y_source+translate_y",
+  "use": "PNG 바이트는 수정하지 않았습니다. 먼저 원점(0,0) 기준 변환을 적용한 뒤 캐릭터 전체 표시 배율/무대 이동을 별도로 적용하세요. source anchor는 해당 PNG 원본 좌표입니다.",
+  "root_alignment": "머리 아래 갈색 폭을 고정 몸통 y650의 갈색 폭에 맞춘 초기값입니다. 윤곽선 두께·잘린 뼈깃·색 차이·얼굴 높이는 시각 검수 후 조정해야 합니다.",
+  "head_order": [
+    "02",
+    "04",
+    "05",
+    "04",
+    "06"
+  ],
+  "head_images_mutually_exclusive": true,
+  "emotion_states": [
+    "기본",
+    "뜨거워",
+    "태연한 물기"
+  ],
+  "fixed_during_lookback": [
+    "01",
+    "07",
+    "08",
+    "아래 뼈깃"
+  ],
+  "default_layer_order": [
+    "발/꼬리",
+    "아랫몸통",
+    "머리",
+    "앞으로 나온 팻말",
+    "이빨/아랫입술 국소 앞가림"
+  ],
+  "sign_note": "등 뒤 팻말에는 별도 뒤가림 마스크 사용. 앞/뒤 두 판이 동시에 보이지 않게 하고 물림점은 하나로 유지. source_bite_anchor는 둥근 꼭지 상단 근처의 근사값이며 이빨과 실제 접촉 검수 필요.",
+  "transforms": [
+    {
+      "id": "01",
+      "scale": 1,
+      "translate_x": 0,
+      "translate_y": 0
+    },
+    {
+      "id": "02",
+      "scale": 0.788274,
+      "translate_x": 133.977,
+      "translate_y": 87.961,
+      "source_root_span": [
+        288,
+        902
+      ],
+      "source_root_y": 713,
+      "target_root_span": [
+        361,
+        845
+      ],
+      "target_root_y": 650,
+      "mouthGrip_source": [
+        600,
+        665
+      ],
+      "mouthGrip_after_transform": [
+        606.94,
+        612.16
+      ],
+      "fireRoot_source": [
+        330,
+        610
+      ]
+    },
+    {
+      "id": "03",
+      "scale": 0.788274,
+      "translate_x": 133.977,
+      "translate_y": 87.961,
+      "source_root_span": [
+        288,
+        902
+      ],
+      "source_root_y": 713,
+      "target_root_span": [
+        361,
+        845
+      ],
+      "target_root_y": 650,
+      "mouthGrip_source": [
+        600,
+        665
+      ],
+      "mouthGrip_after_transform": [
+        606.94,
+        612.16
+      ],
+      "fireRoot_source": [
+        330,
+        610
+      ]
+    },
+    {
+      "id": "04",
+      "scale": 0.717037,
+      "translate_x": 126.529,
+      "translate_y": 59.879,
+      "source_root_span": [
+        327,
+        1002
+      ],
+      "source_root_y": 823,
+      "target_root_span": [
+        361,
+        845
+      ],
+      "target_root_y": 650,
+      "mouthGrip_source": [
+        820,
+        736
+      ],
+      "mouthGrip_after_transform": [
+        714.5,
+        587.62
+      ]
+    },
+    {
+      "id": "05",
+      "scale": 0.718101,
+      "translate_x": 136.234,
+      "translate_y": 55.412,
+      "source_root_span": [
+        313,
+        987
+      ],
+      "source_root_y": 828,
+      "target_root_span": [
+        361,
+        845
+      ],
+      "target_root_y": 650,
+      "mouthGrip_source": [
+        965,
+        760
+      ],
+      "mouthGrip_after_transform": [
+        829.2,
+        601.17
+      ]
+    },
+    {
+      "id": "06",
+      "scale": 0.629389,
+      "translate_x": 223.793,
+      "translate_y": 132.013,
+      "source_root_span": [
+        218,
+        987
+      ],
+      "source_root_y": 823,
+      "target_root_span": [
+        361,
+        845
+      ],
+      "target_root_y": 650,
+      "mouthGrip_source": [
+        600,
+        742
+      ],
+      "mouthGrip_after_transform": [
+        601.43,
+        599.02
+      ]
+    },
+    {
+      "id": "07",
+      "scale": 1.0,
+      "translate_x": -1.5,
+      "translate_y": 0.0
+    },
+    {
+      "id": "08",
+      "scale": 1.035294,
+      "translate_x": -27.435,
+      "translate_y": -46.6
+    },
+    {
+      "id": "09",
+      "scale": 1,
+      "translate_x": 0,
+      "translate_y": 0
+    },
+    {
+      "id": "10",
+      "scale": 1,
+      "source_bite_anchor": [
+        609,
+        654
+      ],
+      "placement_rule": "mouthGrip_world - scale * source_bite_anchor. 팻말 회전도 이 물림점을 기준으로 적용."
+    },
+    {
+      "id": "11",
+      "scale": 1,
+      "source_bite_anchor": [
+        619,
+        645
+      ],
+      "placement_rule": "mouthGrip_world - scale * source_bite_anchor. 팻말 회전도 이 물림점을 기준으로 적용."
+    },
+    {
+      "id": "12",
+      "scale": 0.752212,
+      "source_flame_root": [
+        418,
+        556.5
+      ],
+      "placement_rule": "현재 머리의 fireRoot에 오른쪽 불꽃 뿌리를 부착. 머리 회전/입물림 중에는 숨김."
+    },
+    {
+      "id": "13",
+      "scale": 0.68306,
+      "source_flame_root": [
+        423,
+        563.5
+      ],
+      "placement_rule": "현재 머리의 fireRoot에 오른쪽 불꽃 뿌리를 부착. 머리 회전/입물림 중에는 숨김."
+    },
+    {
+      "id": "14",
+      "scale": 0.555398,
+      "source_bite_anchor": [
+        625.99,
+        603
+      ],
+      "placement_rule": "mouthGrip_world - scale * source_bite_anchor. 180도 된 글자는 PNG에 포함. 별도 글자/추가 회전 없음.",
+      "replaces_front_sign_id": "10"
+    }
+  ],
+  "front_sign_choice": {
+    "primary": "14",
+    "alternative": "10 + 정상 문자열 환영을 하나의 그룹으로180도 회전",
+    "mutually_exclusive": true
+  },
+  "sign_text_orientation": {
+    "word": "환영",
+    "conceptual_inverted_sign_degrees": 180,
+    "asset14_baked_rotation_degrees": 180,
+    "asset14_runtime_extra_rotation_degrees": 0,
+    "asset10_text_group_rotation_degrees": 180,
+    "global_headline_rotation_degrees": 0,
+    "doroduck_sign_rotation_degrees": 0,
+    "remains_inverted_through_final_lineup": true
+  },
+  "personality": "열심히 환영하고 싶지만 서두르다 방향 확인을 놓치는 덤벙거림. 뒤집힌 판을 태연하게 제시하고 바로잡지 않음.",
+  "presentation_reading_beat_seconds": [
+    0.2,
+    0.3
+  ]
+}
