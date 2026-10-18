@@ -17,7 +17,7 @@
   "2.5999999999999996": 480806,
   "3.3": 480662
  },
- "lineup_max_step_px_per_0.05s": 16,
+ "lineup_max_step_px_per_0.05s": 17,
  "skip_equals_end": "same",
  "end_to_wait_box_delta": 0.0,
  "resize_box_delta_logical": 0.1,
