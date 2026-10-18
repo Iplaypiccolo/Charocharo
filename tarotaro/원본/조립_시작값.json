@@ -1,0 +1,481 @@
+{
+  "status": "14 PNG의 투명 배경·원본 크기와 세 표정의 정적 조립을 확인. 대상 사이트 합성·애니메이션 재생 검수는 미실시.",
+  "stage": [
+    400,
+    420
+  ],
+  "coordinate_note": "guide_draw_rect는 PNG의 source_rect만 그렸을 때의 가이드 무대 좌표. PNG 전체를 이 사각형에 넣으면 안 됨. 기존 엔진에 넣을 때 전체 이미지 배율·원점으로 환산하거나 source_rect를 따로 처리해야 함. PNG 원본 바이트는 변경하지 않았음.",
+  "assets": [
+    {
+      "id": "body_front",
+      "file": "파츠/타로타로_01_몸통_정면.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        281,
+        296,
+        970,
+        992
+      ],
+      "source_rect_xywh": [
+        281,
+        296,
+        689,
+        696
+      ],
+      "guide_draw_rect_xywh": [
+        95,
+        154,
+        210,
+        212
+      ]
+    },
+    {
+      "id": "body_left15",
+      "file": "파츠/타로타로_02_몸통_왼쪽15도.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        270,
+        287,
+        967,
+        995
+      ],
+      "source_rect_xywh": [
+        270,
+        287,
+        697,
+        708
+      ],
+      "guide_draw_rect_xywh": [
+        95,
+        154,
+        210,
+        212
+      ]
+    },
+    {
+      "id": "earL",
+      "file": "파츠/타로타로_03_귀_화면왼쪽.png",
+      "canvas": [
+        1836,
+        857
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        403,
+        136,
+        1429,
+        718
+      ],
+      "source_rect_xywh": [
+        403,
+        136,
+        1026,
+        582
+      ],
+      "guide_draw_rect_xywh": [
+        71,
+        139,
+        100,
+        56
+      ]
+    },
+    {
+      "id": "earR",
+      "file": "파츠/타로타로_04_귀_화면오른쪽.png",
+      "canvas": [
+        1836,
+        857
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        535,
+        143,
+        1499,
+        713
+      ],
+      "source_rect_xywh": [
+        535,
+        143,
+        964,
+        570
+      ],
+      "guide_draw_rect_xywh": [
+        229,
+        139,
+        100,
+        56
+      ]
+    },
+    {
+      "id": "antenna",
+      "file": "파츠/타로타로_05_번개안테나.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        313,
+        363,
+        943,
+        1093
+      ],
+      "source_rect_xywh": [
+        313,
+        363,
+        630,
+        730
+      ],
+      "guide_draw_rect_xywh": [
+        160,
+        73,
+        80,
+        95
+      ]
+    },
+    {
+      "id": "wheelL",
+      "file": "파츠/타로타로_06_바퀴_화면왼쪽.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        542,
+        508,
+        722,
+        818
+      ],
+      "source_rect_xywh": [
+        542,
+        508,
+        180,
+        310
+      ],
+      "guide_draw_rect_xywh": [
+        124,
+        349,
+        24,
+        36
+      ]
+    },
+    {
+      "id": "wheelR",
+      "file": "파츠/타로타로_07_바퀴_화면오른쪽.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        524,
+        494,
+        733,
+        790
+      ],
+      "source_rect_xywh": [
+        524,
+        494,
+        209,
+        296
+      ],
+      "guide_draw_rect_xywh": [
+        252,
+        349,
+        24,
+        36
+      ]
+    },
+    {
+      "id": "eyes_smile",
+      "file": "파츠/타로타로_08_눈_빵긋.png",
+      "canvas": [
+        1774,
+        887
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        482,
+        365,
+        1293,
+        522
+      ],
+      "source_rect_xywh": [
+        482,
+        365,
+        811,
+        157
+      ],
+      "guide_draw_rect_xywh": [
+        167,
+        220,
+        66,
+        14
+      ]
+    },
+    {
+      "id": "mouth_smile",
+      "file": "파츠/타로타로_09_입_빵긋.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        251,
+        491,
+        1003,
+        802
+      ],
+      "source_rect_xywh": [
+        251,
+        491,
+        752,
+        311
+      ],
+      "guide_draw_rect_xywh": [
+        164,
+        250,
+        72,
+        30
+      ]
+    },
+    {
+      "id": "eyes_shock15",
+      "file": "파츠/타로타로_10_눈_15도놀람.png",
+      "canvas": [
+        1774,
+        887
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        589,
+        266,
+        1186,
+        655
+      ],
+      "source_rect_xywh": [
+        589,
+        266,
+        597,
+        389
+      ],
+      "guide_draw_rect_xywh": [
+        151,
+        216,
+        76,
+        49
+      ]
+    },
+    {
+      "id": "mouth_shock15",
+      "file": "파츠/타로타로_11_입_15도놀람.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        518,
+        497,
+        739,
+        818
+      ],
+      "source_rect_xywh": [
+        518,
+        497,
+        221,
+        321
+      ],
+      "guide_draw_rect_xywh": [
+        180,
+        270,
+        19,
+        27
+      ]
+    },
+    {
+      "id": "eyes_proud",
+      "file": "파츠/타로타로_12_눈_엣헴.png",
+      "canvas": [
+        1958,
+        803
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        607,
+        308,
+        1351,
+        504
+      ],
+      "source_rect_xywh": [
+        607,
+        308,
+        744,
+        196
+      ],
+      "guide_draw_rect_xywh": [
+        166,
+        219,
+        68,
+        19
+      ]
+    },
+    {
+      "id": "mouth_proud",
+      "file": "파츠/타로타로_13_입_엣헴.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        386,
+        592,
+        901,
+        776
+      ],
+      "source_rect_xywh": [
+        386,
+        592,
+        515,
+        184
+      ],
+      "guide_draw_rect_xywh": [
+        174,
+        259,
+        52,
+        18
+      ]
+    },
+    {
+      "id": "exclamation",
+      "file": "파츠/타로타로_14_느낌표.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "visible_bbox_alpha_gt_127_xyxy": [
+        446,
+        193,
+        850,
+        1074
+      ],
+      "source_rect_xywh": [
+        446,
+        193,
+        404,
+        881
+      ],
+      "guide_draw_rect_xywh": [
+        281,
+        75,
+        27,
+        60
+      ]
+    }
+  ],
+  "body_pivot_stage": [
+    200,
+    385
+  ],
+  "attach_pivots_stage": {
+    "earL": [
+      166,
+      190
+    ],
+    "earR": [
+      234,
+      190
+    ],
+    "antenna": [
+      200,
+      163
+    ],
+    "wheelL": [
+      136,
+      354
+    ],
+    "wheelR": [
+      264,
+      354
+    ]
+  },
+  "states": {
+    "A_기본환영": [
+      "body_front",
+      "eyes_smile",
+      "mouth_smile"
+    ],
+    "B_15도놀람": [
+      "body_left15",
+      "eyes_shock15",
+      "mouth_shock15",
+      "exclamation"
+    ],
+    "C_엣헴": [
+      "body_front",
+      "eyes_proud",
+      "mouth_proud"
+    ]
+  },
+  "face_center_stage": {
+    "A_기본환영": [
+      200,
+      248
+    ],
+    "B_15도놀람": [
+      189,
+      248
+    ],
+    "C_엣헴": [
+      200,
+      248
+    ]
+  },
+  "layer_order": [
+    "antenna",
+    "earL",
+    "earR",
+    "wheelL",
+    "wheelR",
+    "body",
+    "eyes",
+    "mouth",
+    "exclamation"
+  ],
+  "state_B_ear_adjustment": {
+    "earL": {
+      "scale_x": 0.9,
+      "offset_xy": [
+        -5,
+        0
+      ]
+    },
+    "earR": {
+      "scale_x": 1.0,
+      "offset_xy": [
+        -4,
+        0
+      ]
+    },
+    "antenna": {
+      "offset_xy": [
+        -6,
+        0
+      ]
+    }
+  },
+  "body_turn_note": "15도는 그림의 얕은 원근 방향. 화면상 회전각 15도로 대체하지 않음.",
+  "assembly_verified": "정적 조립 가이드 렌더에서 부착부 연결과 얼굴 위치 시각 확인. 놀란 입은 범퍼와 떨어지도록 위로 조정."
+}
