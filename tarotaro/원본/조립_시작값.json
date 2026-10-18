@@ -42,16 +42,16 @@
       ],
       "mode": "RGBA",
       "visible_bbox_alpha_gt_127_xyxy": [
-        270,
-        287,
-        967,
-        995
+        268,
+        293,
+        969,
+        996
       ],
       "source_rect_xywh": [
-        270,
-        287,
-        697,
-        708
+        268,
+        293,
+        701,
+        703
       ],
       "guide_draw_rect_xywh": [
         95,
