@@ -33,7 +33,7 @@
     '.iv-ruler{position:relative;height:18px;font:11px ui-monospace,Consolas,monospace;color:var(--iv-sub)}.iv-ruler span{position:absolute;transform:translateX(-50%)}' +
     '.iv-head{position:absolute;top:0;bottom:0;width:2px;background:#e5484d;pointer-events:none}.iv-slowband{position:absolute;top:0;bottom:0;background:var(--iv-slow);pointer-events:none}' +
     '.iv-hint{font-size:12.5px;color:var(--iv-sub);margin:0}';
-  var COLORS = { chumdani: '#3d8bd8', giltong: '#e0603a', tira: '#a5743b', charocharo: '#d9a400', doroduck: '#e08a00', fx: '#8a5cd6', phase: '#5f7486' };
+  var COLORS = { chumdani: '#3d8bd8', giltong: '#e0603a', tira: '#a5743b', tarotaro: '#7fa800', charocharo: '#d9a400', doroduck: '#e08a00', fx: '#8a5cd6', phase: '#5f7486' };
   function el(tag, attrs, html) { var e = document.createElement(tag); for (var k in (attrs || {})) e.setAttribute(k, attrs[k]); if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 

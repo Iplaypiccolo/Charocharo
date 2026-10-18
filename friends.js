@@ -8,7 +8,7 @@
     { id: 'tira', name: '티라', file: 'tira_v3/tira_v3.json', review: 'tira_v3/review.html', note: "팔 없이 입으로 문 거꾸로 '환영' 팻말 · 불뿜기 (v3)" },
     { id: 'giltong', name: '길통이', file: 'giltong/giltong.json', review: 'giltong/review.html', note: '한 발 들고 인사' },
     { id: 'doroduck', name: '도로덕', file: 'doroduck/doroduck.json', review: 'doroduck/review.html', note: "'합니다!' 팻말" },
-    { id: 'tarotaro', name: '타로타로', file: 'tarotaro/tarotaro.json', review: null, note: '불 보고 움찔 → 점프·환영 → 한쪽씩 착지 → 엣헴 (인트로에는 아직 안 넣음)' }
+    { id: 'tarotaro', name: '타로타로', file: 'tarotaro/tarotaro.json', review: null, note: '불 보고 움찔 → 점프·환영 → 한쪽씩 착지 → 엣헴 (로그인 인트로 포함)' }
   ];
   function $(id) { return document.getElementById(id); }
   function start() {

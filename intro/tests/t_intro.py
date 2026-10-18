@@ -19,7 +19,7 @@ try:
     pg = b.new_page(viewport={'width': 1100, 'height': 900}); pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(URL); pg.wait_for_function('window.__intro && __intro.info().state=="idle"', timeout=20000)
     DUR = pg.evaluate('CharoIntroCast.duration'); SL = pg.evaluate('CharoIntroCast.slow')
-    ids = ['chumdani', 'giltong', 'tira', 'charocharo', 'doroduck']
+    ids = ['chumdani', 'giltong', 'tira', 'tarotaro', 'charocharo', 'doroduck']
     # 1) 시점별 실제 픽셀 검사: 캐릭터마다 따로 1000×600에 그려 보이는 픽셀로 잘림·겹침 판단(투명 여백 제외)
     PIX = """(T)=>{const CP=CharoPet,I=__intro; I.seek(T); const sc0=Math.min(document.getElementById('cv').width/1000,document.getElementById('cv').height/600);
      const out={}; const masks={};
