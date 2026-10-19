@@ -1,0 +1,12 @@
+타로타로 마우스 파츠 제작 기록
+
+방식: 내장 이미지 생성 도구, transparent_background=true.
+참조: 현재 타로타로 정면 몸통, 기존 웃는 눈·빵긋 입. 출력 PNG 원본을 그대로 복사했으며 픽셀 후처리는 하지 않았습니다.
+기존 정면·15도 몸통, 눈·입 프리셋, 귀·안테나·바퀴와 인트로 데이터는 변경하지 않았습니다.
+
+1. eye
+Use case: precise-object-edit. Asset type: ONE reusable open dot eye PNG for the Tarotaro green electric mascot. Image 1 is the exact dark charcoal color and simple line style reference from the existing eyes; image 2 is the mascot face and palette reference. Create ONLY ONE perfectly round solid dark charcoal dot, matching reference eye color approximately #484543. No white sclera, pupil, highlight, eyelid, eyebrow, lashes or extra facial marks. A simple original-style dot eye for looking at the cursor. Center the one opaque circle in a 1254x1254 fully transparent square canvas, visible diameter about 250px with generous padding. Flat uniform color with clean smooth antialiased edges. No gradients, texture, shadow, glow, labels, face, body, second eye, background or checkerboard. It will be reused for left and right eye at about 54x54 original-coordinate size.
+
+2. mouth
+Use case: precise-object-edit. Asset type: ONE curious front-facing mouth PNG for Tarotaro green electric mascot. Reference image 1 is the exact charcoal mouth color and clean simple style reference; reference image 2 is mascot face and palette reference. Draw only a small slightly open 'o' mouth: solid dark charcoal #484543 vertical oval, gently rounded, cute and curious. No tongue, teeth, lips, outline color difference, highlight or inner line. One opaque shape. Center within a 1254x1254 fully transparent square canvas, visible oval about 200px wide and 270px high with generous padding. Flat clean simple mascot style. No face, body, eyes, background, checkerboard, text, labels, shadow, texture, gradient or glow. This is front-facing; do not angle it for the left fifteen-degree side view. Intended to render about 60x78 in the original rig coordinate system.
+

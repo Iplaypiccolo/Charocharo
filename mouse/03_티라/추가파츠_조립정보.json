@@ -1,0 +1,209 @@
+{
+  "status": "PNG 규격·알파 및 얼굴바탕의 색값·불투명도 확인. 기존 파츠와 원본/A/B/C 정적 조립 비교 완료. 실제 사이트 연속 모션 검수 전.",
+  "reference_source": "https://iplaypiccolo.github.io/Charocharo/tira_v3/tira_v3.json",
+  "existing_source_coordinates": [
+    1254,
+    1254
+  ],
+  "stage": [
+    400,
+    400
+  ],
+  "rig_pivot": [
+    640,
+    1121
+  ],
+  "rig_rest": {
+    "x": 200,
+    "y": 385,
+    "sx": 0.3,
+    "sy": 0.3
+  },
+  "head_pivot": [
+    603,
+    650
+  ],
+  "face_cover_clip_polygon": [
+    [
+      480,
+      400
+    ],
+    [
+      755,
+      400
+    ],
+    [
+      810,
+      470
+    ],
+    [
+      822,
+      637
+    ],
+    [
+      374,
+      637
+    ],
+    [
+      385,
+      489
+    ]
+  ],
+  "face_cover_feather_px": 3,
+  "face_cover_note": "PNG에 내부 폴리곤과 부드러운 경계가 이미 반영됨. head 자식으로 같은 원본 좌표에 그린다. SVG 대안도 포함. 얼굴 외곽·뼈깃을 새 그림으로 교체하지 않는다.",
+  "eye_centers": {
+    "left": [
+      517,
+      446
+    ],
+    "right": [
+      679,
+      446
+    ]
+  },
+  "mouth_center": [
+    600,
+    571
+  ],
+  "source_rect_note": "source_rect의 영역을 guide_draw_rect로 그린다. eye_dot은 오른쪽 눈에서는 right_eye_draw_rect를 사용한다. face_base만 같은 캔버스 좌표에 바로 그릴 수 있다.",
+  "additional_assets": [
+    {
+      "id": "face_base",
+      "file": "추가파츠/티라_마우스_01_얼굴바탕.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "parent": "head",
+      "provenance": "정확한 원본 색값 #c79f62 및 내부 클립 좌표로 만든 SVG 마스크를 PNG로 렌더링. 원본 비트맵은 편집하지 않음.",
+      "mask_baked_in_png": true,
+      "edge_feather_source_px": 3
+    },
+    {
+      "id": "eye_dot",
+      "file": "추가파츠/티라_마우스_02_눈_점눈공용.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        502,
+        502,
+        250,
+        250
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        495,
+        425,
+        44,
+        42
+      ],
+      "parent": "head",
+      "provenance": "내장 이미지 생성; 출력 원본 PNG 바이트 그대로 복사",
+      "right_eye_draw_rect": [
+        657,
+        425,
+        44,
+        42
+      ]
+    },
+    {
+      "id": "mouth_base",
+      "file": "추가파츠/티라_마우스_03_입_기본다섯이빨.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        137,
+        545,
+        980,
+        228
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        393,
+        511,
+        414,
+        120
+      ],
+      "parent": "head",
+      "provenance": "내장 이미지 생성; 출력 원본 PNG 바이트 그대로 복사"
+    },
+    {
+      "id": "mouth_curious",
+      "file": "추가파츠/티라_마우스_04_입_호기심.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        494,
+        474,
+        267,
+        368
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        569,
+        533,
+        62,
+        76
+      ],
+      "parent": "head",
+      "provenance": "내장 이미지 생성; 출력 원본 PNG 바이트 그대로 복사"
+    }
+  ],
+  "face_modes": {
+    "A": {
+      "headImg": 0,
+      "face_overlay": true,
+      "eye": "eye_dot x2",
+      "mouth": "mouth_base"
+    },
+    "B": {
+      "headImg": 0,
+      "face_overlay": true,
+      "eye": "eye_dot x2, sx=sy=1.1",
+      "mouth": "mouth_curious"
+    },
+    "C": {
+      "headImg": 1,
+      "face_overlay": false,
+      "eye": "기존 머리에 포함",
+      "mouth": "기존 머리에 포함"
+    }
+  },
+  "existing_fire": {
+    "part": "fire",
+    "parent": "head",
+    "pivot": [
+      402.11,
+      568.81
+    ],
+    "small_image_index": 0,
+    "big_image_index": 1,
+    "big_scale_offset": {
+      "sx": 0.6,
+      "sy": 0.65
+    },
+    "direction": "항상 원본처럼 화면 왼쪽; 전체 캐릭터 반전 금지"
+  },
+  "original_intro_unchanged": true,
+  "verified_poses": [
+    "원래정면",
+    "A_기본시선",
+    "B_호기심_왼쪽기울기",
+    "C_뜨거워_기존불꽃연결"
+  ]
+}

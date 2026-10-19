@@ -1,0 +1,11 @@
+도로덕 마우스 파츠 제작 기록
+
+방식: 내장 이미지 생성 도구, transparent_background=true.
+참조: 현재 도로덕 기본 점눈과 화면 왼날개. 출력 PNG 원본을 그대로 복사했고 픽셀 후처리는 하지 않았습니다.
+기본 눈·웃는 눈·붉은 타원 부리·몸통·날개·발은 현재 사이트 파츠를 재사용합니다.
+
+최종 제작 프롬프트
+Use case: precise-object-edit. Asset type: ONE reusable half-closed concentrating eye for Doroduck, the simple yellow duck mascot. Image 1 is exact dark charcoal eye color and flat style reference, image 2 is line/palette reference for the mascot. Draw only ONE solid dark charcoal #302e2b half-open eye silhouette: a small low HALF OVAL with a flat horizontal upper edge, softly rounded corners and gently rounded lower edge, like the lower half of a circle widened slightly. Width about twice its height. The top edge is one simple straight horizontal edge, no separate eyelid line. It is a droll attentive narrowed eye, not an angry slanted eye. Entire shape one solid opaque charcoal, no white sclera, pupil, highlight, eyelashes, eyebrow, folds or surrounding facial marks. Center on a 1254x1254 fully transparent square canvas, visible shape about 500px wide and 260px high with generous transparent margins. No face, duck, body, beak, second eye, text, labels, background, checkerboard, gradients, texture or shadows. Clean smooth antialiased edges. This will be used for the farther eye while the nearer eye remains the original round dot.
+
+조립 시 그림 영역을 기존 원본 좌표의 52×30에 맞추며, 좌우 공용으로 사용합니다. 원본 PNG는 변형 저장하지 않고 렌더러에서 배치합니다.
+

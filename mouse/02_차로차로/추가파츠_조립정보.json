@@ -1,0 +1,172 @@
+{
+  "status": "투명 PNG 규격·알파 채널 확인, 기존 파츠와 기본/호기심/좌우 윙크 정적 조립 확인. 실제 사이트 연속 모션 검수 전.",
+  "reference_source": "https://iplaypiccolo.github.io/Charocharo/charo-pet.json",
+  "stage": [
+    400,
+    400
+  ],
+  "existing_body_source_coordinates": [
+    1254,
+    1254
+  ],
+  "body_pivot": [
+    626,
+    1094
+  ],
+  "body_rest": {
+    "x": 199.35,
+    "y": 371.22,
+    "sx": 0.26,
+    "sy": 0.26
+  },
+  "source_rect_note": "새 PNG 전체를 같은 좌표에 겹치지 말고, source_rect의 그림 영역을 guide_draw_rect로 매핑한다.",
+  "original_visible_centers": {
+    "mouth": [
+      628.5,
+      683.5
+    ],
+    "eyeL": [
+      454,
+      564.5
+    ],
+    "eyeR": [
+      802,
+      565.5
+    ]
+  },
+  "additional_assets": [
+    {
+      "id": "mouth_curious",
+      "file": "추가파츠/차로차로_마우스_01_입_호기심.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        545,
+        501,
+        163,
+        292
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        596.5,
+        639.5,
+        64,
+        88
+      ],
+      "parent": "body"
+    },
+    {
+      "id": "mouth_smile",
+      "file": "추가파츠/차로차로_마우스_02_입_찡긋웃음.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        257,
+        512,
+        740,
+        267
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        540.5,
+        651.5,
+        176,
+        64
+      ],
+      "parent": "body"
+    },
+    {
+      "id": "eye_wink",
+      "file": "추가파츠/차로차로_마우스_03_눈_윙크공용.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        288,
+        537,
+        670,
+        188
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        394,
+        540.5,
+        120,
+        48
+      ],
+      "parent": "body",
+      "right_eye_draw_rect": [
+        742,
+        541.5,
+        120,
+        48
+      ],
+      "note": "커서가 왼쪽이면 왼눈, 오른쪽이면 오른눈에 같은 이미지 사용. 반대 눈은 기존 기본 눈."
+    }
+  ],
+  "expression_sets": {
+    "A": {
+      "name": "기본",
+      "img": {
+        "eyeL": 0,
+        "eyeR": 0,
+        "browL": 0,
+        "browR": 0,
+        "mouth": 0
+      }
+    },
+    "B": {
+      "name": "호기심",
+      "eyes": "기존 기본 눈 sx=sy=1.04",
+      "brows": "기존 기본 눈썹 y=-8",
+      "mouth": "mouth_curious"
+    },
+    "C": {
+      "name": "찡긋",
+      "near_eye": "eye_wink",
+      "far_eye": "기존 기본 눈",
+      "brows": "기존 기본 눈썹",
+      "mouth": "mouth_smile"
+    }
+  },
+  "wing_rotation_offsets_for_raise": {
+    "screen_left": "+ degrees",
+    "screen_right": "- degrees"
+  },
+  "original_intro_unchanged": true,
+  "image_generation": {
+    "method": "built-in image generation",
+    "prompts": "03_이미지제작_프롬프트.txt"
+  },
+  "body_y_offset_to_keep_ground_contact_stage_units": {
+    "-3": -3.759,
+    "-2": -2.506,
+    "0": 0.0,
+    "2": -2.479,
+    "3": -3.718
+  },
+  "verified_poses": [
+    "A_기본",
+    "B_왼쪽호기심",
+    "C_왼쪽윙크",
+    "C_오른쪽윙크"
+  ],
+  "max_wing_pose_bounds_in_400_stage": [
+    {
+      "direction": -1,
+      "minX": 18.317286849067766,
+      "maxX": 359.7674162748177,
+      "minY": 123.27482551505003,
+      "maxY": 374.2952011744172
+    },
+    {
+      "direction": 1,
+      "minX": 40.23059806751144,
+      "maxX": 381.9603737974983,
+      "minY": 124.05951875114998,
+      "maxY": 374.34980852304034
+    }
+  ]
+}

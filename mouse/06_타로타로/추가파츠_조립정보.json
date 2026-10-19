@@ -1,0 +1,447 @@
+{
+  "status": "PNG 규격·알파 채널·원본 바이트 확인. 기존 파츠와 기본/좌우 균형/엣헴 정적 조립, 지지 바퀴 접지와 반대 바퀴 들림 확인 완료. 실제 사이트 연속 모션 검수 전.",
+  "reference_source": "https://iplaypiccolo.github.io/Charocharo/tarotaro/tarotaro.json",
+  "stage": [
+    400,
+    400
+  ],
+  "source_coordinate_basis": {
+    "guide": [
+      400,
+      420
+    ],
+    "engine_units_per_guide_pixel": 3
+  },
+  "rig_pivot": [
+    600,
+    1155
+  ],
+  "rig_rest": {
+    "x": 200,
+    "y": 385,
+    "sx": 0.3,
+    "sy": 0.3
+  },
+  "body_pivot": [
+    600,
+    1155
+  ],
+  "body_parent": "land",
+  "land_rotation_during_mouse": 0,
+  "balance_anchor_left": [
+    408,
+    1155
+  ],
+  "balance_anchor_right": [
+    792,
+    1155
+  ],
+  "balance_formula": "body_translation = A + R(theta)*(P-A) - P; P=(600,1155), A=selected wheel-bottom anchor; add translation to body rest.",
+  "max_balance_degrees": 6,
+  "wheel_ground_hulls_in_part_source_coordinates": {
+    "wheelL": [
+      [
+        373.0,
+        1100.0
+      ],
+      [
+        373.0,
+        1070.0
+      ],
+      [
+        375.0,
+        1060.0
+      ],
+      [
+        377.0,
+        1056.0
+      ],
+      [
+        383.0,
+        1050.0
+      ],
+      [
+        387.0,
+        1048.0
+      ],
+      [
+        407.0,
+        1048.0
+      ],
+      [
+        419.0,
+        1050.0
+      ],
+      [
+        425.0,
+        1052.0
+      ],
+      [
+        429.0,
+        1054.0
+      ],
+      [
+        431.0,
+        1056.0
+      ],
+      [
+        433.0,
+        1060.0
+      ],
+      [
+        435.0,
+        1066.0
+      ],
+      [
+        439.0,
+        1084.0
+      ],
+      [
+        441.0,
+        1094.0
+      ],
+      [
+        443.0,
+        1106.0
+      ],
+      [
+        443.0,
+        1130.0
+      ],
+      [
+        441.0,
+        1136.0
+      ],
+      [
+        439.0,
+        1140.0
+      ],
+      [
+        429.0,
+        1150.0
+      ],
+      [
+        425.0,
+        1152.0
+      ],
+      [
+        419.0,
+        1154.0
+      ],
+      [
+        407.0,
+        1154.0
+      ],
+      [
+        401.0,
+        1152.0
+      ],
+      [
+        397.0,
+        1150.0
+      ],
+      [
+        391.0,
+        1146.0
+      ],
+      [
+        389.0,
+        1144.0
+      ],
+      [
+        385.0,
+        1138.0
+      ],
+      [
+        379.0,
+        1126.0
+      ],
+      [
+        377.0,
+        1120.0
+      ],
+      [
+        375.0,
+        1112.0
+      ]
+    ],
+    "wheelR": [
+      [
+        757.0,
+        1048.0
+      ],
+      [
+        809.0,
+        1048.0
+      ],
+      [
+        811.0,
+        1050.0
+      ],
+      [
+        823.0,
+        1092.0
+      ],
+      [
+        827.0,
+        1108.0
+      ],
+      [
+        827.0,
+        1130.0
+      ],
+      [
+        825.0,
+        1136.0
+      ],
+      [
+        821.0,
+        1144.0
+      ],
+      [
+        815.0,
+        1150.0
+      ],
+      [
+        807.0,
+        1154.0
+      ],
+      [
+        791.0,
+        1154.0
+      ],
+      [
+        783.0,
+        1150.0
+      ],
+      [
+        773.0,
+        1140.0
+      ],
+      [
+        769.0,
+        1132.0
+      ],
+      [
+        765.0,
+        1120.0
+      ],
+      [
+        761.0,
+        1100.0
+      ],
+      [
+        759.0,
+        1084.0
+      ],
+      [
+        757.0,
+        1064.0
+      ]
+    ]
+  },
+  "ground_note": "worldMatrices로 두 바퀴 hull의 y 최댓값 계산. 기본 바닥 높이와의 차이를 부모 land의 역변환으로 환산해 body 이동에 더함.",
+  "new_eye_centers": {
+    "left": [
+      539,
+      681
+    ],
+    "right": [
+      661,
+      681
+    ]
+  },
+  "new_eye_diameter": 54,
+  "front_mouth_center": [
+    600,
+    795
+  ],
+  "additional_assets": [
+    {
+      "id": "eye_dot",
+      "file": "추가파츠/타로타로_마우스_01_눈_점눈공용.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        510,
+        509,
+        234,
+        236
+      ],
+      "guide_draw_rect_in_existing_engine_coordinates": [
+        512,
+        654,
+        54,
+        54
+      ],
+      "parent": "body",
+      "default_op": 0,
+      "right_eye_draw_rect": [
+        634,
+        654,
+        54,
+        54
+      ],
+      "full_png_variant_rect_xywh": [
+        394.307692,
+        537.533898,
+        289.384615,
+        286.932203
+      ],
+      "right_eye_full_png_variant_rect_xywh": [
+        516.307692,
+        537.533898,
+        289.384615,
+        286.932203
+      ]
+    },
+    {
+      "id": "mouth_curious",
+      "file": "추가파츠/타로타로_마우스_02_입_정면호기심.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        515,
+        477,
+        224,
+        343
+      ],
+      "guide_draw_rect_in_existing_engine_coordinates": [
+        570,
+        756,
+        60,
+        78
+      ],
+      "parent": "body",
+      "default_op": 0,
+      "full_png_variant_rect_xywh": [
+        432.053571,
+        647.527697,
+        335.892857,
+        285.166181
+      ]
+    }
+  ],
+  "source_rect_note": "source_rect를 target 그림 영역에 2축 매핑하거나 full_png_variant_rect로 PNG 전체를 배치. 새 PNG 크기가 기존 엔진 좌표계 크기를 의미하지 않음.",
+  "face_modes": {
+    "mouse_A": {
+      "bodyImg": 0,
+      "eyes_op": 0,
+      "new_dots_op": 1,
+      "mouth_img": 0,
+      "mouth_op": 1,
+      "new_mouth_op": 0
+    },
+    "mouse_B": {
+      "bodyImg": 0,
+      "eyes_op": 0,
+      "new_dots_op": 1,
+      "dots_scale": 1.06,
+      "mouth_op": 0,
+      "new_mouth_op": 1
+    },
+    "mouse_C": {
+      "bodyImg": 0,
+      "eyes_img": 2,
+      "eyes_op": 1,
+      "new_dots_op": 0,
+      "mouth_img": 2,
+      "mouth_op": 1,
+      "new_mouth_op": 0
+    }
+  },
+  "excl_op": 0,
+  "original_intro_unchanged": true,
+  "original_faces_preserved": [
+    "fA",
+    "fB",
+    "fC"
+  ],
+  "verified_poses": [
+    "마우스A_눈뜬기본",
+    "B_왼바퀴지지",
+    "B_오른바퀴지지",
+    "C_기존엣헴"
+  ],
+  "static_pose_checks": {
+    "baseFloor": 384.7,
+    "poses": [
+      {
+        "state": "A",
+        "direction": -1,
+        "bodyRotation": 0,
+        "bodySourceOffset": {
+          "x": 0,
+          "y": 0
+        },
+        "wheelBottomY": {
+          "wheelL": 384.7,
+          "wheelR": 384.7
+        },
+        "floorY": 384.7,
+        "minX": 83.9,
+        "maxX": 316.09999999999997,
+        "minY": 104.2,
+        "maxY": 385
+      },
+      {
+        "state": "B",
+        "direction": -1,
+        "bodyRotation": -6,
+        "bodySourceOffset": {
+          "x": -1.0517960892915426,
+          "y": -20.17947151528915
+        },
+        "wheelBottomY": {
+          "wheelL": 384.7,
+          "wheelR": 372.65832103156635
+        },
+        "floorY": 384.7,
+        "minX": 65.4073458714702,
+        "maxX": 296.3393083394287,
+        "minY": 98.03364498099552,
+        "maxY": 386.09590543292086
+      },
+      {
+        "state": "B",
+        "direction": 1,
+        "bodyRotation": 6,
+        "bodySourceOffset": {
+          "x": 1.0517960892915426,
+          "y": -21.642870001036073
+        },
+        "wheelBottomY": {
+          "wheelL": 372.53288687564515,
+          "wheelR": 384.7
+        },
+        "floorY": 384.7,
+        "minX": 103.66069166057116,
+        "maxX": 334.5926541285298,
+        "minY": 97.59462543527138,
+        "maxY": 385.6568858871967
+      },
+      {
+        "state": "C",
+        "direction": -1,
+        "bodyRotation": -3,
+        "bodySourceOffset": {
+          "x": -0.26312932712176007,
+          "y": -10.102210020133299
+        },
+        "wheelBottomY": {
+          "wheelL": 384.7,
+          "wheelR": 378.6708978408128
+        },
+        "floorY": 384.7,
+        "minX": 74.61252335289765,
+        "maxX": 306.70527265537294,
+        "minY": 100.8272060105862,
+        "maxY": 385.54911640097725
+      }
+    ]
+  }
+}

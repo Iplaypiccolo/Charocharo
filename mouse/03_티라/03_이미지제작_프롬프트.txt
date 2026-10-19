@@ -1,0 +1,15 @@
+티라 마우스 파츠 제작 기록
+
+얼굴바탕은 원본 황갈색 #c79f62와 내부 폴리곤 좌표로 만든 코드 기반 SVG 마스크입니다. SVG를 1254×1254 투명 PNG로 렌더링했습니다. 원본 머리 비트맵은 수정하지 않았습니다. 마스크 경계는 원본 좌표 3px로 부드럽게 처리되어 있습니다.
+
+눈·기본 입·호기심 입 세 장은 내장 이미지 생성 도구를 사용했고 출력 원본 PNG를 그대로 복사했습니다. 참고 그림은 현재 사이트의 headImg 0입니다. 아래는 최종 채택한 세 그림의 제작 프롬프트입니다.
+
+1. eye
+Use case: precise-object-edit. Asset type: one reusable dot eye PNG for the exact Tira dinosaur mascot in reference image 1. Produce ONLY ONE simple solid circular eye, exact dark charcoal gray #484441 matching the original dot eyes. A clean round filled circle, no highlight, no outline distinction, no eyelid, no lashes, no eyebrows. One circle centered in square 1254x1254 transparent canvas, visible circle diameter about 230px, generous clear padding. Flat uniform dark color with clean smooth antialiased edge. No face, head, second eye, background, texture, text or checkerboard. The same dot will be used twice as the two original-style eyes.
+
+2. base_mouth
+Use case: precise-object-edit. Asset type: transparent PNG mouth part for Tira. Image 1 is exact style and SHAPE reference for the original Tira mouth. Isolate/recreate ONLY that mouth shape: a wide softly rounded almost rectangular dark charcoal gray (#484441) mouth, with FIVE short white rounded teeth hanging down from its upper edge. Exactly FIVE teeth, evenly spaced but naturally simple; bottoms of teeth rounded, not triangular. Same cute stupid empty expression as original Tira. No lower teeth, no tongue, lips, smile crease, line details, shiny surface or brown facial background. Preserve original wide low proportions (about 3.55:1 width to height). Draw only this mouth, centered within 1254x1254 fully transparent square canvas, visible mouth about 710px wide and 200px tall. Flat art, charcoal silhouette and white teeth only. No other head, body, eyes, words, shadow, background, border or checkerboard.
+
+3. curious_mouth
+Use case: precise-object-edit. Asset type: transparent PNG curious mouth part for original Tira armless dinosaur mascot. Reference image 1 is exact charcoal color/simple style reference. Make ONLY ONE small blank slightly open mouth, a dark charcoal #484441 vertical rounded oval, a little wider at bottom, with no tongue, teeth, highlight or interior line. It is a simple curious 'o?' mouth, cute and dimwitted, not human lips. One solid shape only, no border color difference. Center within 1254x1254 transparent square canvas, visible mouth about 200px wide and 245px tall. Flat style, smooth antialiasing. No face, eyes, head, body, background, checkerboard, labels, shadow or texture.
+

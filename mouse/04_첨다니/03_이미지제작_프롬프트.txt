@@ -1,0 +1,12 @@
+첨다니 마우스 파츠 제작 기록
+
+방식: 내장 이미지 생성 도구, transparent_background=true. 두 PNG 모두 생성된 원본 바이트 그대로 복사했으며 픽셀 후처리는 하지 않았습니다. 기존 차체·눈·귀·안테나·와이파이 그림은 수정하지 않았습니다.
+
+1. 눈_빙긋공용
+참조: 현재 첨다니의 기본 눈, 화면 왼귀. 작은 표시 크기에서 읽히도록 굵게 만든 최종 시안만 채택했습니다.
+Use case: precise-object-edit. Asset type: ONE bold closed happy eye for Chumdani mascot, visible at very small scale. Image 1 is exact eye charcoal color reference, image 2 is exact bold outline style. Create ONE upside-down U curved closed eye (∩) with extremely BOLD, very thick stroke and rounded ends. The stroke thickness MUST be at least ONE QUARTER of the total visible eye WIDTH (25%). Example: visible eye width 600 pixels, stroke thickness 150 pixels, overall eye height including stroke about 280 pixels. This is a chunky happy arch, not a thin line, no tapering, no lashes or eyebrow details. Single solid dark charcoal #302f2d shape. Center the arch alone in a 1254x1254 fully transparent square canvas, generous margins. Opaque inside the stroke. No other eye, face, pupil, highlight, eyelid fold, text, labels, border, background, checkerboard, texture, gradient or shadows. Simple flat cartoon mascot, especially readable when scaled down to 72 pixels wide.
+
+2. 효과_발견반짝
+참조: 현재 첨다니 안테나의 노랑·회색 팔레트.
+Use case: stylized-concept. Asset type: ONE small transparent PNG discovery sparkle to use beside the Chumdani bus antenna. Image 1 is the exact yellow and charcoal palette/line style reference. Draw one simple FOUR-POINT sparkle star, taller than wide, with softly curved concave sides tapering into four rounded pointed tips. Solid vivid warm yellow fill matching reference antenna ball, thick uniform dark charcoal #302f2d outline. Very simple cute flat mascot effect, only yellow fill and charcoal outline. One silhouette with opaque interior, NO shading, gradients, highlights, shine rays, other stars, circles, dots, words, glow or shadows. Center the one sparkle in a 1254x1254 fully transparent square canvas, visible star about 340px wide and 440px high, outline about 32px. Lots of transparent padding. The background alone is transparent. Keep the star yellow interior opaque. No bus, face, antenna or checkerboard.
+

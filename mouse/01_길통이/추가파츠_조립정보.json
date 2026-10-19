@@ -1,0 +1,146 @@
+{
+  "status": "PNG 투명 배경·크기 확인 및 기존 파츠와 정적 조립 검수 완료. 사이트 연속 모션 검수 전. 좌표는 조립 시작값.",
+  "base_file": "giltong/giltong.json",
+  "base_canvas": [
+    1254,
+    1254
+  ],
+  "base_head_pivot": [
+    627,
+    795
+  ],
+  "base_body_pivot": [
+    627,
+    1005
+  ],
+  "base_stage_scale": 0.24,
+  "additional_assets": [
+    {
+      "id": "mouth_curious",
+      "file": "추가파츠/길통이_마우스_01_입_호기심.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        533,
+        469,
+        189,
+        350
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        591,
+        627,
+        72,
+        98
+      ]
+    },
+    {
+      "id": "mouth_thinking",
+      "file": "추가파츠/길통이_마우스_02_입_생각중.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        362,
+        594,
+        551,
+        81
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        547,
+        664,
+        160,
+        24
+      ]
+    },
+    {
+      "id": "arm_chin",
+      "file": "추가파츠/길통이_마우스_03_왼팔_턱가까이.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        240,
+        204,
+        821,
+        894
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        388.0,
+        662.8,
+        164.20000000000002,
+        178.8
+      ],
+      "source_shoulder_anchor": [
+        900,
+        1000
+      ],
+      "parent_shoulder_anchor": [
+        520,
+        822
+      ],
+      "initial_uniform_scale": 0.2,
+      "source_to_parent_translation": [
+        340,
+        622
+      ],
+      "transform": "p_parent=(520,822)+0.20*(p_source-(900,1000))",
+      "layer": "호기심 액션 중에만 기존 head 다음, 눈·눈썹·입 이전에 그림. 기존 armL은 숨김. 몸통 앞 어깨 단면은 필요 시 기존 몸통으로 국소 가림.",
+      "note": "어깨 기준은 기존 armL과 동일. 머리 오른쪽 기울기 6도에서 손과 입의 간격을 정적으로 확인함. 팔을 올리고 내리는 연속 구간은 실제 렌더러에서 검수 필요."
+    },
+    {
+      "id": "question",
+      "file": "추가파츠/길통이_마우스_04_물음표.png",
+      "canvas": [
+        1254,
+        1254
+      ],
+      "source_rect_xywh": [
+        336,
+        109,
+        684,
+        1030
+      ],
+      "guide_draw_rect_in_existing_1254_coordinates": [
+        925,
+        70,
+        105,
+        160
+      ]
+    }
+  ],
+  "face_sets": {
+    "A_기본": {
+      "eyes": "existing basic",
+      "mouth": "existing image 0",
+      "brows": "existing basic; 추가 위치 변화 없음"
+    },
+    "B_호기심": {
+      "eyes": "existing basic, sx1.08 sy0.96",
+      "brows": "existing, both y=-8",
+      "mouth": "mouth_curious"
+    },
+    "C_생각중": {
+      "eyes": "existing basic",
+      "brows": "existing, one brow y=-12, other unchanged",
+      "mouth": "mouth_thinking"
+    }
+  },
+  "use_existing_eye_assets": true,
+  "original_intro_unchanged": true,
+  "reference_source": "https://iplaypiccolo.github.io/Charocharo/giltong/giltong.json",
+  "source_rect_note": "원본 PNG에서 사용할 그림 영역. 새 PNG 전체를 기존 캔버스에 그대로 겹치지 말 것. source_rect를 guide_draw_rect로 매핑한다.",
+  "base_idle_offsets": {
+    "armL_rotation_deg": -48,
+    "armR_rotation_deg": 48,
+    "head_rotation_deg": 0
+  },
+  "render_verified_poses": [
+    "A_기본",
+    "B_호기심",
+    "C_생각중_고개6도_왼팔전경_물음표"
+  ]
+}
