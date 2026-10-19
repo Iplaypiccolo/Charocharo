@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /*
- * 로그인 화면 키보드 반응 클립 넣기 (add_keys.js)
- * 사용법: node intro/tools/add_keys.js <여섯캐릭터_키보드액션 폴더>
+ * 로그인 화면 키보드·터치 반응 클립 넣기 (add_keys.js)
+ * 사용법: node intro/tools/add_keys.js <여섯캐릭터_키보드액션 폴더>   → kb_ 클립 5개(+ 길통이 k_ 파츠)
+ *         node intro/tools/add_keys.js <여섯캐릭터_모바일터치 폴더>   → mt_press·mt_tap·mt_cancel (2026-10-20)
+ *   폴더 안 파일 이름(키보드_클립만.json / 모바일터치_클립만.json)으로 어느 쪽인지 알아냄. 각자 자기 것만 지우고 다시 넣음.
  *
  * - 각 폴더의 '키보드_클립만.json'(kb_type·kb_echo·kb_private_in·kb_private_hold·kb_private_out)을 현재 캐릭터 파일에 합칩니다.
  *   원본 그림·파츠·피벗·기본 자세는 건드리지 않습니다(자료의 원본과 현재 파일이 같음을 먼저 확인).
@@ -16,7 +18,10 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '..', '..');
 const SRC = process.argv[2];
-if (!SRC) { console.error('사용법: node intro/tools/add_keys.js <여섯캐릭터_키보드액션 폴더>'); process.exit(1); }
+if (!SRC) { console.error('사용법: node intro/tools/add_keys.js <여섯캐릭터_키보드액션 또는 여섯캐릭터_모바일터치 폴더>'); process.exit(1); }
+const SET = fs.existsSync(path.join(SRC, '01_길통이', '키보드_클립만.json')) ? 'kb' : fs.existsSync(path.join(SRC, '01_길통이', '모바일터치_클립만.json')) ? 'mt' : null;
+if (!SET) { console.error('키보드_클립만.json 이나 모바일터치_클립만.json 이 있는 폴더가 아님'); process.exit(1); }
+const CLIPFILE = SET === 'kb' ? '키보드_클립만.json' : '모바일터치_클립만.json', LABEL = SET === 'kb' ? '키보드: ' : '터치: ';
 const win = { document: { currentScript: null }, performance: { now: () => 0 } };
 vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'charo-pet.js'), 'utf8'), { window: win, document: win.document, performance: win.performance });
 const CP = win.CharoPet;
@@ -49,17 +54,20 @@ function thin(keys, tol) {   // 직선 보간으로 tol 안에 들어오는 중�
 }
 
 function strip(p) {
-  p.parts = p.parts.filter(x => !x.id.startsWith('k_'));
-  p.clips = p.clips.filter(c => !c.id.startsWith('kb_'));
-  for (const c of p.clips) for (const k of Object.keys(c.tracks)) if (k.startsWith('k_')) delete c.tracks[k];
-  p.preview = (p.preview || []).filter(x => !x.clip.startsWith('kb_'));
+  const pre = SET + '_';
+  if (SET === 'kb') {
+    p.parts = p.parts.filter(x => !x.id.startsWith('k_'));
+    for (const c of p.clips) for (const k of Object.keys(c.tracks)) if (k.startsWith('k_')) delete c.tracks[k];
+  }
+  p.clips = p.clips.filter(c => !c.id.startsWith(pre));
+  p.preview = (p.preview || []).filter(x => !x.clip.startsWith(pre));
 }
 
 const report = {};
 for (const [id, [dir, file]] of Object.entries(MAP)) {
   const f = path.join(ROOT, file), p = JSON.parse(fs.readFileSync(f, 'utf8'));
   const orig = JSON.parse(fs.readFileSync(path.join(SRC, dir, '원본_캐릭터.json'), 'utf8'));
-  const kb = JSON.parse(fs.readFileSync(path.join(SRC, dir, '키보드_클립만.json'), 'utf8'));
+  const kb = JSON.parse(fs.readFileSync(path.join(SRC, dir, CLIPFILE), 'utf8'));
   strip(p);
   // 1) 원본 대조: 파츠 이름·부모·피벗·기본 자세·그림 자리가 같아야 함
   for (const o of orig.parts) {
@@ -71,7 +79,7 @@ for (const [id, [dir, file]] of Object.entries(MAP)) {
   }
   // 2) 길통이 볼 앞 팔 파츠
   const extra = [];
-  if (id === 'giltong') {
+  if (id === 'giltong' && SET === 'kb') {
     const hi = p.parts.findIndex(x => x.id === 'head');
     const top = ['armL', 'armR'].map(a => {
       const s = CP.findPart(p, a);
@@ -84,9 +92,10 @@ for (const [id, [dir, file]] of Object.entries(MAP)) {
     for (const c of p.clips) for (const k of extra) c.tracks[k] = { op: [{ t: 0, v: 0, e: 'step' }, { t: +c.dur.toFixed(3), v: 0, e: 'step' }] };
   }
   // 3) 클립 줄이기·합치기
-  const mParts = p.parts.filter(x => x.id.startsWith('m_')).map(x => x.id);
+  const mParts = p.parts.filter(x => /^[mk]_/.test(x.id)).map(x => x.id);   // 마우스용·키보드용 추가 파츠는 이 동작들에서 숨김
   let keysIn = 0, keysOut = 0;
   for (const c0 of kb.clips) {
+    if (!c0.id.startsWith(SET + '_')) throw new Error(id + ': 클립 이름이 ' + SET + '_ 로 시작하지 않음 ' + c0.id);
     if (CP.findClip(p, c0.id)) throw new Error(id + ': 클립 이름 겹침 ' + c0.id);
     const c = { id: c0.id, name: c0.name, dur: c0.dur, loop: !!c0.loop, tracks: {} };
     for (const [pid, tr] of Object.entries(c0.tracks)) {
@@ -104,7 +113,7 @@ for (const [id, [dir, file]] of Object.entries(MAP)) {
       if (Object.keys(out).length) c.tracks[pid] = out;
     }
     for (const m of mParts) c.tracks[m] = { op: [{ t: 0, v: 0, e: 'step' }, { t: c.dur, v: 0, e: 'step' }] };
-    if (id === 'giltong') {   // 볼 앞 팔: 원본 팔과 같은 움직임, 비밀번호 동작에서 팔이 올라가기 시작하면 보임
+    if (id === 'giltong' && SET === 'kb') {   // 볼 앞 팔: 원본 팔과 같은 움직임, 비밀번호 동작에서 팔이 올라가기 시작하면 보임
       const fg = c.id === 'kb_private_in' ? 0.01 : c.id === 'kb_private_hold' ? 0 : c.id === 'kb_private_out' ? 'out' : null;
       for (const a of ['armL', 'armR']) {
         const t = { ...(c.tracks[a] || {}) };
@@ -117,10 +126,10 @@ for (const [id, [dir, file]] of Object.entries(MAP)) {
       }
     }
     p.clips.push(c);
-    p.preview = p.preview || []; p.preview.push({ label: '키보드: ' + c.name, clip: c.id });
+    p.preview = p.preview || []; p.preview.push({ label: LABEL + c.name, clip: c.id });
   }
-  p.keys = { unbase: UNBASE[id] || {} };
+  if (SET === 'kb') p.keys = { unbase: UNBASE[id] || {} };
   fs.writeFileSync(f, JSON.stringify(p), 'utf8');
-  report[id] = { keysIn, keysOut, kb: Math.round(JSON.stringify(p.clips.filter(c => c.id.startsWith('kb_'))).length / 1024) };
+  report[id] = { keysIn, keysOut, kb: Math.round(JSON.stringify(p.clips.filter(c => c.id.startsWith(SET + '_'))).length / 1024) };
 }
 console.log(JSON.stringify(report, null, 1));
