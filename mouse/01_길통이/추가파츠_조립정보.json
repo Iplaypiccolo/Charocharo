@@ -63,33 +63,40 @@
         1254
       ],
       "source_rect_xywh": [
-        240,
-        204,
-        821,
-        894
+        368,
+        470,
+        679,
+        659
       ],
       "guide_draw_rect_in_existing_1254_coordinates": [
-        388.0,
-        662.8,
-        164.20000000000002,
-        178.8
+        365.76,
+        668.4,
+        217.28,
+        210.88
       ],
       "source_shoulder_anchor": [
-        900,
-        1000
+        850,
+        950
       ],
       "parent_shoulder_anchor": [
         520,
         822
       ],
-      "initial_uniform_scale": 0.2,
+      "initial_uniform_scale": 0.32,
       "source_to_parent_translation": [
-        340,
-        622
+        248.0,
+        518.0
       ],
       "transform": "p_parent=(520,822)+0.20*(p_source-(900,1000))",
-      "layer": "호기심 액션 중에만 기존 head 다음, 눈·눈썹·입 이전에 그림. 기존 armL은 숨김. 몸통 앞 어깨 단면은 필요 시 기존 몸통으로 국소 가림.",
-      "note": "어깨 기준은 기존 armL과 동일. 머리 오른쪽 기울기 6도에서 손과 입의 간격을 정적으로 확인함. 팔을 올리고 내리는 연속 구간은 실제 렌더러에서 검수 필요."
+      "layer": "기존 armL 숨김. 1차: 원래 armL 순서에서 body 부모로 그림(몸통·머리 뒤). 2차: head 다음에 같은 팔의 윗부분만 body 좌표 [300,600,230,190]으로 클립해 덧그림. 눈·눈썹·입 앞에 팔이 덮이지 않게 유지.",
+      "note": "손끝 구형 덩어리 제거. 원본 막대 팔의 굵기를 기준으로 접은 단일 파츠. 정적 조립 확인용: 기존 C 자세 머리 +6도, 팔은 body 부모. 새 크롭·배율을 함께 적용할 것. 실제 사이트 연속 모션은 별도 확인.",
+      "over_head_clip_rect_xywh_in_body_coordinates": [
+        300,
+        600,
+        230,
+        190
+      ],
+      "source_to_parent_formula": "p_parent = [520,822] + 0.32 * (p_source - [850,950])"
     },
     {
       "id": "question",

@@ -1,0 +1,50 @@
+{
+  "revision": "arm-only-v2",
+  "canvas": [
+    1254,
+    1254
+  ],
+  "replacement": {
+    "id": "arm_chin",
+    "file": "추가파츠/길통이_마우스_03_왼팔_턱가까이.png",
+    "canvas": [
+      1254,
+      1254
+    ],
+    "source_rect_xywh": [
+      368,
+      470,
+      679,
+      659
+    ],
+    "guide_draw_rect_in_existing_1254_coordinates": [
+      365.76,
+      668.4,
+      217.28,
+      210.88
+    ],
+    "source_shoulder_anchor": [
+      850,
+      950
+    ],
+    "parent_shoulder_anchor": [
+      520,
+      822
+    ],
+    "initial_uniform_scale": 0.32,
+    "source_to_parent_translation": [
+      248.0,
+      518.0
+    ],
+    "transform": "p_parent=(520,822)+0.20*(p_source-(900,1000))",
+    "layer": "기존 armL 숨김. 1차: 원래 armL 순서에서 body 부모로 그림(몸통·머리 뒤). 2차: head 다음에 같은 팔의 윗부분만 body 좌표 [300,600,230,190]으로 클립해 덧그림. 눈·눈썹·입 앞에 팔이 덮이지 않게 유지.",
+    "note": "손끝 구형 덩어리 제거. 원본 막대 팔의 굵기를 기준으로 접은 단일 파츠. 정적 조립 확인용: 기존 C 자세 머리 +6도, 팔은 body 부모. 새 크롭·배율을 함께 적용할 것. 실제 사이트 연속 모션은 별도 확인.",
+    "over_head_clip_rect_xywh_in_body_coordinates": [
+      300,
+      600,
+      230,
+      190
+    ],
+    "source_to_parent_formula": "p_parent = [520,822] + 0.32 * (p_source - [850,950])"
+  }
+}
