@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /*
- * 첨다니·타로타로 비밀번호 요원 모드 넣기 (add_agent_vehicle.js) — 2026-10-21, 네·다섯 번째 친구(바퀴 달린 친구)
- * 사용법: node intro/tools/add_agent_vehicle.js <첨다니_요원모드… 또는 타로타로_요원모드… 폴더>
+ * 첨다니·타로타로·도로덕 비밀번호 요원 모드 넣기 (add_agent_vehicle.js) — 2026-10-21, 네·다섯·여섯 번째 친구
+ * 사용법: node intro/tools/add_agent_vehicle.js <첨다니_요원모드… / 타로타로_요원모드… / 도로덕_요원모드… 폴더>
+ *   (도로덕: 바퀴 대신 발 윤곽 footHulls 로 접지, 바람 뒤 날개 늦게·먼 발 한 번 고쳐 딛기·작은 반대 반동. 부리는 원본 그대로 옮겨 씀)
  *
  * - 자료의 설정/추가파츠.json + 새이미지 2장(사선 차체·선글라스)만 읽음. 새 그림은 바이트 그대로 drawRect·등록 행렬로 배치(자르거나 늘이지 않음).
  *   다시 쓰는 원본(귀·안테나·바퀴, 첨다니는 와이파이도)은 현재 파일 그림을 해시로 확인.
@@ -28,6 +29,9 @@ const VEH = {
     front: { eyeL: { img: 2 }, eyeR: { img: 2 }, browL: { op: 0 }, browR: { op: 0 } }, wifi: true },
   '타로타로': { wind: TL.windBody, amp: 1.5, lags: [['antenna', 7, TL.antennaDelay], ['earL', 5, TL.earDelay], ['earR', 3, TL.earDelay]], tilt: 4,
     front: { eyes: { img: 0, op: 1 }, excl: { op: 0 }, mouth: { img: 0 } }, proud: TL.proudRecovery },
+  '도로덕': { wind: TL.windBody, amp: 2, lags: [['wingL', 6, TL.wingDelay], ['wingR', 3.5, TL.wingDelay]], tilt: 4,
+    front: { eyeL: { img: 1 }, eyeR: { img: 1 }, sign: { op: 0 }, signText: { op: 0 }, signF: { op: 0 }, signTextF: { op: 0 }, wingRf: { op: 0 } },
+    step: TL.footReset, settle: TL.settle },
 }[CFG.character];
 if (!VEH) throw new Error('첨다니·타로타로 자료가 아님: ' + CFG.character);
 const F = path.join(ROOT, CFG.projectFile), p = JSON.parse(fs.readFileSync(F, 'utf8')), part = id => CP.findPart(p, id);
@@ -68,13 +72,17 @@ for (const c of p.clips) c.tracks.k_agentGlasses = { op: [{ t: 0, v: 0, e: 'step
 
 // 3) 자세
 const baseOff = CP.offsetsFrom(p, CP.clipPose(p, CP.findClip(p, p.baseClip), 0));
-const hide = new Set(CFG.hideDuringAgent), O = CFG.finalPoseOverrides, H = CFG.wheelHulls;
+const hide = new Set(CFG.hideDuringAgent), O = CFG.finalPoseOverrides, H = CFG.wheelHulls || CFG.footHulls;
 function floorOf(f) { const W = CP.worldMatrices(p, f); let y = -Infinity; for (const id of Object.keys(H)) for (const q of H[id]) y = Math.max(y, CP.apply(W[id], q[0], q[1])[1]); return y; }
 const target = floorOf(CP.finalPose(p, baseOff, null));
+function ground(f) {   // 가장 아랫점이 기본 자세 때 바닥 높이가 되도록 body.y 보정(body 가 다른 파츠 아래면 그 배율로 나눔)
+  const par = part('body').parent;
+  for (let i = 0; i < 2; i++) { const ky = par ? CP.worldMatrices(p, f)[par][3] : 1; f.body.y += (target - floorOf(f)) / ky; }
+}
 function base() { const f = CP.finalPose(p, baseOff, null); for (const x of p.parts) if (/^(m_|k_)/.test(x.id)) f[x.id].op = 0; return f; }
 function front() { const f = base(); for (const [id, v] of Object.entries(VEH.front)) Object.assign(f[id], v); return f; }
 const IN = CFG.engineIntegration.durations.in, HOLD = CFG.engineIntegration.durations.hold, OUT = CFG.engineIntegration.durations.out;
-const W0 = VEH.wind[0], W1 = VEH.wind[1], CALM = VEH.proud ? VEH.proud[1] : W1 + Math.max(...VEH.lags.map(l => l[2])) + 0.1;
+const W0 = VEH.wind[0], W1 = VEH.wind[1], CALM = VEH.proud ? VEH.proud[1] : VEH.settle ? VEH.settle[1] : W1 + Math.max(...VEH.lags.map(l => l[2])) + 0.1;
 function wave(t, d) {   // 바람 한 번(지연 d) 뒤 잔바람(1/5, 4.6초 주기)
   if (t < CALM) return bump(t, W0 + d, W1 + d);
   return 0.2 * Math.sin((t - CALM) * Math.PI * 2 / HOLD - d * 2);
@@ -98,7 +106,9 @@ function agent(t, out) {
   f.body.rot += VEH.amp * wave(tt, 0) * k;
   for (const [id, amp, d] of VEH.lags) f[id].rot += amp * wave(tt, d) * k;
   if (VEH.proud && out == null) { f.body.rot -= 0.8 * bump(t, VEH.proud[0], VEH.proud[1]); f.body.y -= 4 * bump(t, VEH.proud[0], VEH.proud[1]); }   // 엣헴
-  f.body.y += target - floorOf(f);   // 바퀴 접지
+  if (VEH.step && out == null) { const u = bump(t, VEH.step[0], VEH.step[1]); f.footR.y -= 16 * u; f.footR.x += 14 * ease((t - VEH.step[0]) / (VEH.step[1] - VEH.step[0])) - 14 * ease((t - VEH.step[1]) / 0.3); }   // 먼 발 한 번 고쳐 딛기
+  if (VEH.settle && out == null) f.body.rot -= 0.7 * bump(t, VEH.settle[0], VEH.settle[1]);   // 작은 반대 반동으로 정돈
+  ground(f);   // 바퀴·발 접지
   return f;
 }
 const TOL = { x: 0.15, y: 0.15, rot: 0.1, sx: 0.003, sy: 0.003, op: 0.003 }, DEF = { x: 0, y: 0, rot: 0, sx: 1, sy: 1, op: 1 };
