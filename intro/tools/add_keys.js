@@ -56,8 +56,9 @@ function thin(keys, tol) {   // 직선 보간으로 tol 안에 들어오는 중�
 function strip(p) {
   const pre = SET + '_';
   if (SET === 'kb') {
-    p.parts = p.parts.filter(x => !x.id.startsWith('k_'));
-    for (const c of p.clips) for (const k of Object.keys(c.tracks)) if (k.startsWith('k_')) delete c.tracks[k];
+    const mine = id => /^k_arm[LR]Top$/.test(id);   // 길통이 볼 앞 팔만(요원 선글라스 k_agentGlasses 는 add_agent.js 몫)
+    p.parts = p.parts.filter(x => !mine(x.id));
+    for (const c of p.clips) for (const k of Object.keys(c.tracks)) if (mine(k)) delete c.tracks[k];
   }
   p.clips = p.clips.filter(c => !c.id.startsWith(pre));
   p.preview = (p.preview || []).filter(x => !x.clip.startsWith(pre));
