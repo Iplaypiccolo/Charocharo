@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 길통이부터(친구 하나씩)
+ * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 친구 하나씩(길통이·차로차로)
  * 사용법: node intro/tools/add_agent_rig.js <친구_요원모드_최종파츠 폴더>     (여러 번 돌려도 같은 결과)
  *
  * 자료 형식: 설정/<이름>_조립설정.json 의 engineRecipe(파츠·그림 파일·sha256)와 timeline(시간표), 파츠/*.png(1254×1254 투명).
@@ -71,11 +71,23 @@ const OUTS = {   // 복귀: 자료 참고 코드 sample(phase 'out') 와 같은 
   '12': { clip: 'ag_out12', steps: [[0, 12], [0.28, 0]], glasses: 0 },
 };
 const GLASS_AT = TL.glassesOpacity.find((k, i, a) => i > 0 && k.v > 0 && a[i - 1].v === 0) ? TL.glassesOpacity.filter(k => k.v === 0).slice(-1)[0].t : 0.6;
-function state(kind, t) {
-  if (kind === 'in') return { angle: angleAt(STEPS, t), glasses: sampleKeys(TL.glassesOpacity, t, 'v'), armRot: sampleKeys(TL.nearArm, t, 'rot') || 0, armDy: sampleKeys(TL.nearArm, t, 'dy') || 0,
-    armScale: sampleKeys(TL.nearArm, t, 'scale') || 1, glassesDy: sampleKeys(TL.glassesNudge, t, 'dy') || 0, rootRot: sampleKeys(TL.rootLean, t, 'rot') || 0, capeRot: sampleKeys(TL.capeLag, t, 'rot') || 0 };
-  if (kind === 'hold') { const w = t % 6, wind = w > 3 && w < 4.8 ? Math.sin((w - 3) / 1.8 * Math.PI * 2) * 0.55 : 0; return { angle: 35, glasses: 1, rootRot: wind, capeRot: -wind * 1.2 }; }
-  const o = OUTS[kind]; return { angle: angleAt(o.steps, t), glasses: o.glasses * (1 - clamp(t / 0.1, 0, 1)) };   // 팔·몸 기울기는 재생기가 나가는 순간 자세에서 0.16초에 이어 붙임
+// 시간표 키 → 움직일 파츠(자료 조립설정 timeline). 모르는 키가 있으면 멈춤(빠뜨리지 않게)
+const MOTION = { rootLean: 'root', capeLag: 'cape', nearArm: 'arm_near', glassesNudge: 'glasses',   // 길통이
+  hullLean: 'hull', nearWing: 'wing_near', farWing: 'wing_far' };                                     // 차로차로
+// 대기(6초 반복, 3~4.8초에 약한 바람 한 번) — 자료 참고 코드(클로드용/*_요원리그.js) sample(phase 'hold') 의 값. 파츠 키: 회전 배율(도)
+const HOLD = { gt_verified_: { root: 0.55, cape: -0.66 }, charo_verified_: { hull: 0.25, wing_near: 0.9, wing_far: -0.5 } };
+const SKIP_TL = new Set(['duration', 'turn', 'glassesOpacity', 'outDuration', 'wheelMotion']);
+for (const [k, v] of Object.entries(TL)) if (!SKIP_TL.has(k) && Array.isArray(v) && !MOTION[k]) throw new Error('시간표 키를 모름(도구에 추가 필요): ' + k);
+if (!HOLD[PFX]) throw new Error('대기 바람 값을 모름(도구 HOLD 에 추가 필요): ' + PFX);
+for (const k of Object.values(MOTION)) if (Object.keys(TL).some(t => MOTION[t] === k) && !Object.values(keyOf).includes(k)) throw new Error('시간표가 움직이는 파츠가 리그에 없음: ' + k);
+function state(kind, t) {   // { angle, glasses, mv: { 파츠키: { rot, dy, scale } } }
+  if (kind === 'in') {
+    const mv = {};
+    for (const [tk, pk] of Object.entries(MOTION)) if (TL[tk]) mv[pk] = { rot: sampleKeys(TL[tk], t, 'rot') || 0, dy: sampleKeys(TL[tk], t, 'dy') || 0, scale: TL[tk][0].scale != null ? sampleKeys(TL[tk], t, 'scale') : 1 };
+    return { angle: angleAt(STEPS, t), glasses: sampleKeys(TL.glassesOpacity, t, 'v'), mv };
+  }
+  if (kind === 'hold') { const w = t % 6, v = w > 3 && w < 4.8 ? Math.sin((w - 3) / 1.8 * Math.PI * 2) : 0, mv = {}; for (const [pk, a] of Object.entries(HOLD[PFX])) mv[pk] = { rot: v * a, dy: 0, scale: 1 }; return { angle: 35, glasses: 1, mv }; }
+  const o = OUTS[kind]; return { angle: angleAt(o.steps, t), glasses: o.glasses * (1 - clamp(t / 0.1, 0, 1)), mv: {} };   // 움직임은 재생기가 나가는 순간 자세에서 0.12초에 0으로 이어 붙임
 }
 function pose(kind, t) {
   const st = state(kind, t), on = st.angle !== 0, f = {};
@@ -86,10 +98,8 @@ function pose(kind, t) {
     const q = f[id], k = keyOf[id]; q.op = on ? 1 : 0;
     if (part(id).images.length) q.img = on ? ai : 0;
     if (!on) continue;
-    if (k === 'root') q.rot += st.rootRot || 0;
-    if (k === 'cape') q.rot += st.capeRot || 0;
-    if (k === 'arm_near') { q.rot += st.armRot || 0; q.y += st.armDy || 0; q.sx *= st.armScale || 1; q.sy *= st.armScale || 1; }   // 같은 비율(sx=sy)만
-    if (k === 'glasses') { q.op = st.glasses; q.y += st.glassesDy || 0; }
+    const m = st.mv[k]; if (m) { q.rot += m.rot; q.y += m.dy; q.sx *= m.scale; q.sy *= m.scale; }   // 같은 비율(sx=sy)만
+    if (k === 'glasses') q.op = st.glasses;
   }
   return f;
 }
