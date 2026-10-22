@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 친구 하나씩(길통이·차로차로·도로덕)
+ * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 친구 하나씩(길통이·차로차로·도로덕·티라)
  * 사용법: node intro/tools/add_agent_rig.js <친구_요원모드_최종파츠 폴더>     (여러 번 돌려도 같은 결과)
  *
  * 자료 형식: 설정/<이름>_조립설정.json 의 engineRecipe(파츠·그림 파일·sha256)와 timeline(시간표), 파츠/*.png(1254×1254 투명).
@@ -55,11 +55,11 @@ const keyOf = {}; for (const id of newIds) keyOf[id] = id === RID ? 'root' : id.
 const ANG = CFG.angles;   // [12,24,35] → img 0,1,2
 for (const id of newIds) { const pt = part(id); if (pt.images.length && pt.images.length !== ANG.length) throw new Error(id + ' 그림 수가 각도 수와 다름'); }
 
-// 2) 평소 모습(정면 단계에서 기존 파츠를 이 모습 그대로): 기본 동작 0초 + 로그인 대기(mouse.base), 키보드용(k_)·마우스 얼굴(m_)은 숨김
+// 2) 평소 모습(정면 단계에서 기존 파츠를 이 모습 그대로): 기본 동작 0초 + 로그인 대기(mouse.base), 키보드용(k_)은 숨김
 const baseOff = CP.offsetsFrom(p, CP.clipPose(p, CP.findClip(p, p.baseClip), 0));
 for (const [id, b] of Object.entries((p.mouse && p.mouse.base) || {})) if (baseOff[id] && b.op != null) baseOff[id].op = b.op;
 const idle = CP.finalPose(p, baseOff, null);
-for (const id of originalIds) if (/^(k_|m_)/.test(id)) idle[id].op = 0;
+for (const id of originalIds) if (/^k_/.test(id) || (/^m_/.test(id) && !(p.mouse && p.mouse.base && p.mouse.base[id] && p.mouse.base[id].op != null))) idle[id].op = 0;   // 마우스용 얼굴(m_)은 로그인 대기 때 켜 두는 것(mouse.base)이면 그대로 — 정면 단계에서 얼굴이 바뀌어 보이지 않게(티라·타로타로)
 
 // 3) 시각별 상태 → 자세
 const STEPS = TL.turn.map(k => [k.t, k.angle]);   // [[0,0],[.15,12],[.3,24],[.45,35]]
@@ -73,10 +73,11 @@ const OUTS = {   // 복귀: 자료 참고 코드 sample(phase 'out') 와 같은 
 const GLASS_AT = TL.glassesOpacity.find((k, i, a) => i > 0 && k.v > 0 && a[i - 1].v === 0) ? TL.glassesOpacity.filter(k => k.v === 0).slice(-1)[0].t : 0.6;
 // 시간표 키 → 움직일 파츠(자료 조립설정 timeline). 모르는 키가 있으면 멈춤(빠뜨리지 않게)
 const MOTION = { rootLean: 'root', capeLag: 'cape', nearArm: 'arm_near', glassesNudge: 'glasses',   // 길통이
-  hullLean: 'hull', nearWing: 'wing_near', farWing: 'wing_far' };                                     // 차로차로·도로덕(도로덕 날개는 0)
+  hullLean: 'hull', nearWing: 'wing_near', farWing: 'wing_far',                                       // 차로차로·도로덕(도로덕 날개는 0)
+  tailLag: 'tail' };                                                                                      // 티라
 // 대기(6초 반복, 3~4.8초에 약한 바람 한 번) — 자료 참고 코드(클로드용/*_요원리그.js) sample(phase 'hold') 의 값. 파츠 키: 회전 배율(도)
-const HOLD = { gt_verified_: { root: 0.55, cape: -0.66 }, charo_verified_: { hull: 0.25, wing_near: 0.9, wing_far: -0.5 }, doro_verified_: { hull: 0.22 } };
-const SKIP_TL = new Set(['duration', 'turn', 'glassesOpacity', 'outDuration', 'wheelMotion', 'footMotion']);
+const HOLD = { gt_verified_: { root: 0.55, cape: -0.66 }, charo_verified_: { hull: 0.25, wing_near: 0.9, wing_far: -0.5 }, doro_verified_: { hull: 0.22 }, tira_verified_: { hull: 0.18, tail: -0.35 } };
+const SKIP_TL = new Set(['duration', 'turn', 'glassesOpacity', 'outDuration', 'wheelMotion', 'footMotion', 'spineMotion', 'glint']);
 for (const [k, v] of Object.entries(TL)) if (!SKIP_TL.has(k) && Array.isArray(v) && !MOTION[k]) throw new Error('시간표 키를 모름(도구에 추가 필요): ' + k);
 if (!HOLD[PFX]) throw new Error('대기 바람 값을 모름(도구 HOLD 에 추가 필요): ' + PFX);
 for (const k of Object.values(MOTION)) if (Object.keys(TL).some(t => MOTION[t] === k) && !Object.values(keyOf).includes(k)) throw new Error('시간표가 움직이는 파츠가 리그에 없음: ' + k);
@@ -149,10 +150,13 @@ for (const [key, o] of Object.entries(OUTS)) made.push(makeClip(o.clip, '요원 
 for (const c of made) { p.clips.push(c); p.preview.push({ label: c.name, clip: c.id }); }
 if (!p.mouse) p.mouse = {}; if (!p.mouse.base) p.mouse.base = {}; for (const id of newIds) p.mouse.base[id] = { op: 0 };
 p.agent = {
-  in: 'ag_in', hold: 'ag_hold', out: 'ag_out', ready: DUR, side: STEPS[1][0], version: 7,
+  in: 'ag_in', hold: 'ag_hold', out: 'ag_out', ready: (R.agentMeta && R.agentMeta.ready) || DUR, side: STEPS[1][0], version: 7,   // ready: 움직임 줄이기 때 보여 줄 완성 자세 시각(자료 agentMeta, 없으면 진입 끝)
   rig: { parts: newIds, steps: STEPS, glassesAt: GLASS_AT, outs: Object.fromEntries(Object.entries(OUTS).map(([k, o]) => [k, { clip: o.clip, steps: o.steps }])),
     resume: { '35g': 1.65, '35': STEPS[3][0], '24': STEPS[2][0], '12': STEPS[1][0], '0': 0 } },
   source: { package: path.basename(path.resolve(SRC)), configSHA256: sha(cfgRaw) },
 };
+// 안경 반짝(티라): 자료 agentMeta.glint(새 안경 파츠 좌표·반경·시간) + timeline.glint(밝기 키) → 재생기 drawFront 가 십자(자료 참고 코드와 같은 모양)로 한 번 그림
+if (R.agentMeta && R.agentMeta.glint) { const g = R.agentMeta.glint; if (!newIds.includes(g.part)) throw new Error('반짝 파츠가 리그에 없음: ' + g.part);
+  p.agent.glint = { part: g.part, at: g.at, t: g.t, r: g.r, style: 'cross', lineWidth: 2.8, keys: (TL.glint || []).map(k => ({ t: k.t, v: k.v })) }; }
 fs.writeFileSync(F, JSON.stringify(p), 'utf8');
 console.log(JSON.stringify({ file: CFG.originalFront.projectFile, newParts: newIds.length, images: Object.keys(R.assetFiles).length, clips: made.map(c => [c.id, c.dur, Object.keys(c.tracks).length]), glassesAt: GLASS_AT, fileKB: Math.round(fs.statSync(F).size / 1024) }));
