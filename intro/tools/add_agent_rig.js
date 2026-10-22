@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 친구 하나씩(길통이·차로차로·도로덕·티라)
+ * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 친구 하나씩(길통이·차로차로·도로덕·티라·타로타로)
  * 사용법: node intro/tools/add_agent_rig.js <친구_요원모드_최종파츠 폴더>     (여러 번 돌려도 같은 결과)
  *
  * 자료 형식: 설정/<이름>_조립설정.json 의 engineRecipe(파츠·그림 파일·sha256)와 timeline(시간표), 파츠/*.png(1254×1254 투명).
@@ -74,9 +74,10 @@ const GLASS_AT = TL.glassesOpacity.find((k, i, a) => i > 0 && k.v > 0 && a[i - 1
 // 시간표 키 → 움직일 파츠(자료 조립설정 timeline). 모르는 키가 있으면 멈춤(빠뜨리지 않게)
 const MOTION = { rootLean: 'root', capeLag: 'cape', nearArm: 'arm_near', glassesNudge: 'glasses',   // 길통이
   hullLean: 'hull', nearWing: 'wing_near', farWing: 'wing_far',                                       // 차로차로·도로덕(도로덕 날개는 0)
-  tailLag: 'tail' };                                                                                      // 티라
+  tailLag: 'tail',                                                                                        // 티라
+  poseLean: 'pose' };                                                                                     // 타로타로(몸 전체 묶음)
 // 대기(6초 반복, 3~4.8초에 약한 바람 한 번) — 자료 참고 코드(클로드용/*_요원리그.js) sample(phase 'hold') 의 값. 파츠 키: 회전 배율(도)
-const HOLD = { gt_verified_: { root: 0.55, cape: -0.66 }, charo_verified_: { hull: 0.25, wing_near: 0.9, wing_far: -0.5 }, doro_verified_: { hull: 0.22 }, tira_verified_: { hull: 0.18, tail: -0.35 } };
+const HOLD = { gt_verified_: { root: 0.55, cape: -0.66 }, charo_verified_: { hull: 0.25, wing_near: 0.9, wing_far: -0.5 }, doro_verified_: { hull: 0.22 }, tira_verified_: { hull: 0.18, tail: -0.35 }, tarotaro_verified_: { pose: 0.15 } };
 const SKIP_TL = new Set(['duration', 'turn', 'glassesOpacity', 'outDuration', 'wheelMotion', 'footMotion', 'spineMotion', 'glint']);
 for (const [k, v] of Object.entries(TL)) if (!SKIP_TL.has(k) && Array.isArray(v) && !MOTION[k]) throw new Error('시간표 키를 모름(도구에 추가 필요): ' + k);
 if (!HOLD[PFX]) throw new Error('대기 바람 값을 모름(도구 HOLD 에 추가 필요): ' + PFX);
