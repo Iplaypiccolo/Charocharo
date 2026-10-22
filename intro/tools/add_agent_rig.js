@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 친구 하나씩(길통이·차로차로·도로덕·티라·타로타로)
+ * 비밀번호 요원 모드 — '검수 확정 리그' 넣기 (add_agent_rig.js) · 2026-10-22, 친구 하나씩(길통이·차로차로·도로덕·티라·타로타로·첨다니)
  * 사용법: node intro/tools/add_agent_rig.js <친구_요원모드_최종파츠 폴더>     (여러 번 돌려도 같은 결과)
  *
  * 자료 형식: 설정/<이름>_조립설정.json 의 engineRecipe(파츠·그림 파일·sha256)와 timeline(시간표), 파츠/*.png(1254×1254 투명).
@@ -77,19 +77,24 @@ const MOTION = { rootLean: 'root', capeLag: 'cape', nearArm: 'arm_near', glasses
   tailLag: 'tail',                                                                                        // 티라
   poseLean: 'pose' };                                                                                     // 타로타로(몸 전체 묶음)
 // 대기(6초 반복, 3~4.8초에 약한 바람 한 번) — 자료 참고 코드(클로드용/*_요원리그.js) sample(phase 'hold') 의 값. 파츠 키: 회전 배율(도)
-const HOLD = { gt_verified_: { root: 0.55, cape: -0.66 }, charo_verified_: { hull: 0.25, wing_near: 0.9, wing_far: -0.5 }, doro_verified_: { hull: 0.22 }, tira_verified_: { hull: 0.18, tail: -0.35 }, tarotaro_verified_: { pose: 0.15 } };
-const SKIP_TL = new Set(['duration', 'turn', 'glassesOpacity', 'outDuration', 'wheelMotion', 'footMotion', 'spineMotion', 'glint']);
+const HOLD = { gt_verified_: { root: 0.55, cape: -0.66 }, charo_verified_: { hull: 0.25, wing_near: 0.9, wing_far: -0.5 }, doro_verified_: { hull: 0.22 }, tira_verified_: { hull: 0.18, tail: -0.35 }, tarotaro_verified_: { pose: 0.15 }, chumdani_verified_: { pose: 0.12 } };
+const SKIP_TL = new Set(['duration', 'turn', 'glassesOpacity', 'outDuration', 'wheelMotion', 'footMotion', 'spineMotion', 'glint', 'wifi']);
 for (const [k, v] of Object.entries(TL)) if (!SKIP_TL.has(k) && Array.isArray(v) && !MOTION[k]) throw new Error('시간표 키를 모름(도구에 추가 필요): ' + k);
 if (!HOLD[PFX]) throw new Error('대기 바람 값을 모름(도구 HOLD 에 추가 필요): ' + PFX);
 for (const k of Object.values(MOTION)) if (Object.keys(TL).some(t => MOTION[t] === k) && !Object.values(keyOf).includes(k)) throw new Error('시간표가 움직이는 파츠가 리그에 없음: ' + k);
-function state(kind, t) {   // { angle, glasses, mv: { 파츠키: { rot, dy, scale } } }
+// 첨다니 와이파이: timeline.wifi = [{t, weak, dot, inner, outer}] → wifi_<이름> 파츠의 보임(op)을 step 으로. 대기·복귀(12·24·35+안경)는 강함, 35(안경 전)는 약함
+const WIFI = TL.wifi || null, WK = WIFI ? Object.keys(WIFI[0]).filter(k => k !== 't') : [];
+for (const k of WK) if (!newIds.includes(PFX + 'wifi_' + k)) throw new Error('와이파이 파츠가 리그에 없음: wifi_' + k);
+const wifiAt = t => { let w = WIFI[0]; for (const q of WIFI) if (t >= q.t - 1e-9) w = q; return w; };
+const STRONG = WIFI ? WIFI[WIFI.length - 1] : null, WEAK = WIFI ? wifiAt(STEPS[3][0]) : null;
+function state(kind, t) {   // { angle, glasses, mv: { 파츠키: { rot, dy, scale } }, wifi }
   if (kind === 'in') {
     const mv = {};
     for (const [tk, pk] of Object.entries(MOTION)) if (TL[tk]) mv[pk] = { rot: sampleKeys(TL[tk], t, 'rot') || 0, dy: sampleKeys(TL[tk], t, 'dy') || 0, scale: TL[tk][0].scale != null ? sampleKeys(TL[tk], t, 'scale') : 1 };
-    return { angle: angleAt(STEPS, t), glasses: sampleKeys(TL.glassesOpacity, t, 'v'), mv };
+    return { angle: angleAt(STEPS, t), glasses: sampleKeys(TL.glassesOpacity, t, 'v'), mv, wifi: WIFI && wifiAt(t) };
   }
-  if (kind === 'hold') { const w = t % 6, v = w > 3 && w < 4.8 ? Math.sin((w - 3) / 1.8 * Math.PI * 2) : 0, mv = {}; for (const [pk, a] of Object.entries(HOLD[PFX])) mv[pk] = { rot: v * a, dy: 0, scale: 1 }; return { angle: 35, glasses: 1, mv }; }
-  const o = OUTS[kind]; return { angle: angleAt(o.steps, t), glasses: o.glasses * (1 - clamp(t / 0.1, 0, 1)), mv: {} };   // 움직임은 재생기가 나가는 순간 자세에서 0.12초에 0으로 이어 붙임
+  if (kind === 'hold') { const w = t % 6, v = w > 3 && w < 4.8 ? Math.sin((w - 3) / 1.8 * Math.PI * 2) : 0, mv = {}; for (const [pk, a] of Object.entries(HOLD[PFX])) mv[pk] = { rot: v * a, dy: 0, scale: 1 }; return { angle: 35, glasses: 1, mv, wifi: STRONG }; }
+  const o = OUTS[kind]; return { angle: angleAt(o.steps, t), glasses: o.glasses * (1 - clamp(t / 0.1, 0, 1)), mv: {}, wifi: kind === '35' ? WEAK : STRONG };   // 재생기가 나가던 순간의 와이파이 값을 복귀 내내 유지(rig.keep)   // 움직임은 재생기가 나가는 순간 자세에서 0.12초에 0으로 이어 붙임
 }
 function pose(kind, t) {
   const st = state(kind, t), on = st.angle !== 0, f = {};
@@ -102,6 +107,7 @@ function pose(kind, t) {
     if (!on) continue;
     const m = st.mv[k]; if (m) { q.rot += m.rot; q.y += m.dy; q.sx *= m.scale; q.sy *= m.scale; }   // 같은 비율(sx=sy)만
     if (k === 'glasses') q.op = st.glasses;
+    if (st.wifi && k.startsWith('wifi_')) q.op = st.wifi[k.slice(5)];
   }
   return f;
 }
@@ -152,8 +158,8 @@ for (const c of made) { p.clips.push(c); p.preview.push({ label: c.name, clip: c
 if (!p.mouse) p.mouse = {}; if (!p.mouse.base) p.mouse.base = {}; for (const id of newIds) p.mouse.base[id] = { op: 0 };
 p.agent = {
   in: 'ag_in', hold: 'ag_hold', out: 'ag_out', ready: (R.agentMeta && R.agentMeta.ready) || DUR, side: STEPS[1][0], version: 7,   // ready: 움직임 줄이기 때 보여 줄 완성 자세 시각(자료 agentMeta, 없으면 진입 끝)
-  rig: { parts: newIds, steps: STEPS, glassesAt: GLASS_AT, outs: Object.fromEntries(Object.entries(OUTS).map(([k, o]) => [k, { clip: o.clip, steps: o.steps }])),
-    resume: { '35g': 1.65, '35': STEPS[3][0], '24': STEPS[2][0], '12': STEPS[1][0], '0': 0 } },
+  rig: { parts: newIds, steps: STEPS, ...(WK.length ? { keep: WK.map(k => PFX + 'wifi_' + k), vis: PFX + 'body' } : {}), /* keep: 복귀 동안 나가던 순간 값을 유지할 파츠(첨다니 와이파이), vis: 리그가 보이는지 판단할 파츠 */ glassesAt: GLASS_AT, outs: Object.fromEntries(Object.entries(OUTS).map(([k, o]) => [k, { clip: o.clip, steps: o.steps }])),
+    resume: { '35g': WIFI ? Math.max(1.65, WIFI.filter((q, i) => i && WK.some(k => q[k] !== WIFI[i - 1][k])).slice(-1)[0].t + 0.02) : 1.65, '35': STEPS[3][0], '24': STEPS[2][0], '12': STEPS[1][0], '0': 0 } },
   source: { package: path.basename(path.resolve(SRC)), configSHA256: sha(cfgRaw) },
 };
 // 안경 반짝(티라): 자료 agentMeta.glint(새 안경 파츠 좌표·반경·시간) + timeline.glint(밝기 키) → 재생기 drawFront 가 십자(자료 참고 코드와 같은 모양)로 한 번 그림
