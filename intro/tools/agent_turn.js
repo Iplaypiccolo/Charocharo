@@ -50,6 +50,7 @@ const report = {};
 for (const [cid, file] of Object.entries(FILES)) {
   const F = path.join(ROOT, file), p = JSON.parse(fs.readFileSync(F, 'utf8')), A = p.agent;
   if (!A) throw new Error(cid + ': 요원 동작이 없음');
+  if (A.rig) { report[cid] = '건너뜀(검수 확정 리그, add_agent_rig.js)'; continue; }   // 2026-10-22: 새 리그를 넣은 친구는 다시 만들지 않음
   // 원래 동작 보관(src_ag_*) — 이미 있으면 그것에서 다시 만듦
   const src = {};
   for (const id of [A.in, A.hold, A.out]) {
